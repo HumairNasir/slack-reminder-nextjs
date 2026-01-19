@@ -1,5 +1,5 @@
 "use client";
-export const dynamic = "force-dynamic";
+// export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -122,9 +122,7 @@ export default function SlackPage() {
           <button
             className="message-close"
             onClick={() => setMessage({ type: "", text: "" })}
-          >
-            ×
-          </button>
+          ></button>
         </div>
       )}
 
@@ -213,4 +211,7 @@ export default function SlackPage() {
       </div>
     </div>
   );
+}
+export async function generateStaticParams() {
+  return [];
 }
