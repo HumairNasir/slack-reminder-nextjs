@@ -7,11 +7,10 @@ import "./sidebar.css";
 
 const menuItems = [
   { name: "Dashboard", icon: Home, href: "/dashboard" },
-  // { name: "Reminders", icon: Calendar, href: "/dashboard/reminders" },
-  // { name: "Slack", icon: Slack, href: "/dashboard/slack" },
-  // { name: "Billing", icon: Zap, href: "/dashboard/billing" },
-  // { name: "Settings", icon: Settings, href: "/dashboard/settings" },
-  { name: "Test", icon: Settings, href: "/dashboard/test" },
+  { name: "Reminders", icon: Calendar, href: "/dashboard/reminders" },
+  { name: "Slack", icon: Slack, href: "/dashboard/slack" },
+  { name: "Billing", icon: Zap, href: "/dashboard/billing" },
+  { name: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
 
 export default function Sidebar() {
