@@ -53,7 +53,16 @@ export default function DashboardPage() {
         <div className="stat-card">
           <h3 className="stat-title">Slack Connection</h3>
           <p className="stat-number error">Not Connected</p>
-          <button className="action-btn success-btn">Connect Slack</button>
+          <button
+            className="action-btn success-btn"
+            onClick={() =>
+              alert(
+                "Slack OAuth would start here. Need HTTPS for actual implementation.",
+              )
+            }
+          >
+            Connect Slack
+          </button>
         </div>
 
         {/* Active Reminders Card */}

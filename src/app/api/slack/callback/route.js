@@ -1,0 +1,73 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get("code");
+  const userId = searchParams.get("state");
+  const error = searchParams.get("error");
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://slack-reminder-nextjs-gglx0cgt0-muhammad-humair-nasirs-projects.vercel.app";
+
+  if (error) {
+    return NextResponse.redirect(`${appUrl}/dashboard/slack?error=${error}`);
+  }
+
+  if (!code || !userId) {
+    return NextResponse.redirect(
+      `${appUrl}/dashboard/slack?error=missing_params`,
+    );
+  }
+
+  try {
+    // Exchange code for token
+    const response = await fetch("https://slack.com/api/oauth.v2.access", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID,
+        client_secret: process.env.SLACK_CLIENT_SECRET,
+        code,
+        redirect_uri: `${appUrl}/api/slack/callback`,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!data.ok) {
+      console.error("Slack OAuth error:", data);
+      return NextResponse.redirect(
+        `${appUrl}/dashboard/slack?error=${data.error || "oauth_failed"}`,
+      );
+    }
+
+    // Save to database
+    const supabase = await createClient();
+
+    const { error: dbError } = await supabase.from("slack_connections").insert({
+      user_id: userId,
+      team_id: data.team.id,
+      team_name: data.team.name,
+      bot_token: Buffer.from(data.access_token).toString("base64"),
+      bot_user_id: data.bot_user_id,
+      is_active: true,
+    });
+
+    if (dbError) {
+      console.error("Database error:", dbError);
+      return NextResponse.redirect(`${appUrl}/dashboard/slack?error=db_error`);
+    }
+
+    // Success!
+    return NextResponse.redirect(`${appUrl}/dashboard/slack?success=true`);
+  } catch (error) {
+    console.error("Slack OAuth catch error:", error);
+    return NextResponse.redirect(
+      `${appUrl}/dashboard/slack?error=server_error`,
+    );
+  }
+}

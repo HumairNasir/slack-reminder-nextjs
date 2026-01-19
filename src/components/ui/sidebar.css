@@ -45,6 +45,16 @@
   background-color: #f9fafb;
 }
 
+.menu-item.active {
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.menu-item.active .menu-icon {
+  color: #2563eb;
+}
+
 .menu-icon {
   height: 1rem;
   width: 1rem;

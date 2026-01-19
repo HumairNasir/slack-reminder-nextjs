@@ -1,4 +1,8 @@
+"use client";
+
 import { Calendar, Home, Settings, Slack, Zap } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import "./sidebar.css";
 
 const menuItems = [
@@ -10,20 +14,28 @@ const menuItems = [
 ];
 
 export default function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="sidebar">
       <nav className="sidebar-nav">
         <div className="section">
           <h2 className="section-title">Main</h2>
           <ul className="menu-list">
-            {menuItems.map((item) => (
-              <li key={item.name}>
-                <a href={item.href} className="menu-item">
-                  <item.icon className="menu-icon" />
-                  <span>{item.name}</span>
-                </a>
-              </li>
-            ))}
+            {menuItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <li key={item.name}>
+                  <Link
+                    href={item.href}
+                    className={`menu-item ${isActive ? "active" : ""}`}
+                  >
+                    <item.icon className="menu-icon" />
+                    <span>{item.name}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
