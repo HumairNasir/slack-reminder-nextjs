@@ -1,5 +1,4 @@
 "use client";
-// export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -10,7 +9,9 @@ import "./slack.css";
 export default function SlackContent() {
   const { user } = useAuth();
   const [connections, setConnections] = useState([]);
+  const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingChannels, setLoadingChannels] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const supabase = createClient();
   const router = useRouter();
@@ -28,6 +29,8 @@ export default function SlackContent() {
       });
       // Clear the message after 5 seconds
       setTimeout(() => setMessage({ type: "", text: "" }), 5000);
+      // Refresh connections after successful connection
+      fetchConnections();
     }
 
     if (error) {
@@ -58,6 +61,68 @@ export default function SlackContent() {
     setLoading(false);
   };
 
+  const fetchSlackChannels = async (connectionId) => {
+    if (!connectionId || !user) return;
+
+    setLoadingChannels(true);
+    setMessage({ type: "", text: "" });
+
+    try {
+      // Get the specific connection
+      const { data: connection } = await supabase
+        .from("slack_connections")
+        .select("*")
+        .eq("id", connectionId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!connection) {
+        throw new Error("Connection not found");
+      }
+
+      // Decrypt the bot token (base64 encoded)
+      const botToken = Buffer.from(connection.bot_token, "base64").toString(
+        "utf-8",
+      );
+
+      // Fetch channels from Slack API
+      const response = await fetch("/api/slack/channels", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          botToken,
+          connectionId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setChannels(data.channels || []);
+        setMessage({
+          type: "success",
+          text: `Fetched ${data.channels?.length || 0} channels from Slack`,
+        });
+      } else {
+        setMessage({
+          type: "error",
+          text: data.error || "Failed to fetch channels",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching channels:", error);
+      setMessage({
+        type: "error",
+        text: "Failed to fetch channels. Please try again.",
+      });
+    } finally {
+      setLoadingChannels(false);
+      setTimeout(() => setMessage({ type: "", text: "" }), 5000);
+    }
+  };
+
   const handleConnectSlack = () => {
     if (!user) {
       alert("Please login first");
@@ -73,7 +138,6 @@ export default function SlackContent() {
 
     const scopes =
       "channels:read,channels:manage,chat:write,groups:read,im:read,mpim:read";
-    // const redirectUri = `${window.location.origin}/api/slack/callback`;
     const redirectUri = `https://slack-reminder-nextjs.vercel.app/api/slack/callback`;
     const state = user.id;
 
@@ -93,6 +157,7 @@ export default function SlackContent() {
 
     if (!error) {
       fetchConnections();
+      setChannels([]); // Clear channels when disconnected
       setMessage({
         type: "success",
         text: "Slack workspace disconnected successfully!",
@@ -133,7 +198,7 @@ export default function SlackContent() {
         <h2>Connect Your Slack Workspace</h2>
         <p>
           Connect your Slack workspace to schedule reminders and send messages
-          automatically. You'll be able to select channels and schedule
+          automatically. You&apos;ll be able to select channels and schedule
           messages.
         </p>
         <button
@@ -190,26 +255,73 @@ export default function SlackContent() {
                   </div>
                 </div>
 
-                <button
-                  className="disconnect-btn"
-                  onClick={() => handleDisconnect(conn.id)}
-                >
-                  Disconnect
-                </button>
+                <div className="connection-actions">
+                  <button
+                    className="fetch-channels-btn"
+                    onClick={() => fetchSlackChannels(conn.id)}
+                    disabled={loadingChannels}
+                  >
+                    {loadingChannels ? "Fetching..." : "Fetch Channels"}
+                  </button>
+                  <button
+                    className="disconnect-btn"
+                    onClick={() => handleDisconnect(conn.id)}
+                  >
+                    Disconnect
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
 
+      {/* Channels Display Section */}
+      {channels.length > 0 && (
+        <div className="channels-section">
+          <div className="section-header">
+            <h2>Available Channels ({channels.length})</h2>
+            <button className="clear-btn" onClick={() => setChannels([])}>
+              Clear List
+            </button>
+          </div>
+          <div className="channels-grid">
+            {channels.map((channel) => (
+              <div key={channel.id} className="channel-card">
+                <div className="channel-icon">
+                  {channel.is_private ? "🔒" : "#"}
+                </div>
+                <div className="channel-info">
+                  <h4>{channel.name}</h4>
+                  <p className="channel-id">ID: {channel.id}</p>
+                  <div className="channel-meta">
+                    <span
+                      className={`channel-type ${channel.is_private ? "private" : "public"}`}
+                    >
+                      {channel.is_private ? "Private" : "Public"}
+                    </span>
+                    {channel.is_archived && (
+                      <span className="archived">Archived</span>
+                    )}
+                  </div>
+                </div>
+                <button className="select-channel-btn">
+                  Select for Reminders
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="instructions">
         <h3>How it works:</h3>
         <ol>
-          <li>Click "Connect New Workspace"</li>
+          <li>Click &quot;Connect New Workspace&quot;</li>
           <li>Authorize the app in Slack</li>
           <li>Select the workspace you want to connect</li>
-          <li>You'll be redirected back here with success message</li>
-          <li>Start creating reminders for your Slack channels!</li>
+          <li>Click &quot;Fetch Channels&quot; to see available channels</li>
+          <li>Select channels for your reminders</li>
         </ol>
       </div>
     </div>
