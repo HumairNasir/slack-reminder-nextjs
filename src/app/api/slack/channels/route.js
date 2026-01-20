@@ -4,6 +4,21 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
   try {
+    const supabase = await createClient();
+
+    // 1. First get the current user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized - Please login" },
+        { status: 401 },
+      );
+    }
+
     const { connectionId } = await request.json();
 
     if (!connectionId) {
@@ -13,18 +28,21 @@ export async function POST(request) {
       );
     }
 
-    // 1. Get connection from database
-    const supabase = await createClient();
-
+    // 2. Get connection WITH user validation
     const { data: connection, error: dbError } = await supabase
       .from("slack_connections")
       .select("*")
       .eq("id", connectionId)
+      .eq("user_id", user.id) // CRITICAL: Verify user owns this connection
+      .eq("is_active", true)
       .single();
 
     if (dbError || !connection) {
       return NextResponse.json(
-        { success: false, error: "Connection not found" },
+        {
+          success: false,
+          error: "Connection not found or you dont have permission",
+        },
         { status: 404 },
       );
     }

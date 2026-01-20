@@ -267,31 +267,45 @@ export default function SlackContent() {
               Clear List
             </button>
           </div>
+
           <div className="channels-grid">
-            {channels.map((channel) => (
-              <div key={channel.id} className="channel-card">
-                <div className="channel-icon">
-                  {channel.is_private ? "🔒" : "#"}
-                </div>
-                <div className="channel-info">
-                  <h4>{channel.name}</h4>
-                  <p className="channel-id">ID: {channel.id}</p>
-                  <div className="channel-meta">
-                    <span
-                      className={`channel-type ${channel.is_private ? "private" : "public"}`}
-                    >
-                      {channel.is_private ? "Private" : "Public"}
-                    </span>
-                    {channel.is_archived && (
-                      <span className="archived">Archived</span>
-                    )}
+            {channels.map((channel) => {
+              // Handle undefined channel names
+              console.log("Channels data:", channels);
+              console.log("First channel:", channels[0]);
+              const channelName =
+                channel.channel_name ||
+                channel.name ||
+                `Channel ${channel.channel_id?.slice(0, 8)}` ||
+                "Unnamed Channel";
+
+              const channelId = channel.channel_id || channel.id || "N/A";
+
+              return (
+                <div key={channelId} className="channel-card">
+                  <div className="channel-icon">
+                    {channel.is_private ? "🔒" : "#"}
                   </div>
+                  <div className="channel-info">
+                    <h4>{channelName}</h4>
+                    <p className="channel-id">ID: {channelId}</p>
+                    <div className="channel-meta">
+                      <span
+                        className={`channel-type ${channel.is_private ? "private" : "public"}`}
+                      >
+                        {channel.is_private ? "Private" : "Public"}
+                      </span>
+                      {channel.is_archived && (
+                        <span className="archived">Archived</span>
+                      )}
+                    </div>
+                  </div>
+                  <button className="select-channel-btn">
+                    Select for Reminders
+                  </button>
                 </div>
-                <button className="select-channel-btn">
-                  Select for Reminders
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -220,6 +220,7 @@
 
 /* Channel Fetching Button */
 .fetch-channels-btn {
+  width: 100%;
   background-color: #3b82f6;
   color: white;
   border: none;
