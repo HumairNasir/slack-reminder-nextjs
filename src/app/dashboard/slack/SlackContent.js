@@ -271,15 +271,15 @@ export default function SlackContent() {
           <div className="channels-grid">
             {channels.map((channel) => {
               // Handle undefined channel names
-              console.log("Channels data:", channels);
-              console.log("First channel:", channels[0]);
-              const channelName =
-                channel.channel_name ||
-                channel.name ||
-                `Channel ${channel.channel_id?.slice(0, 8)}` ||
-                "Unnamed Channel";
+              //   console.log("Channels data:", channels);
+              //   console.log("First channel:", channels[0]);
+              //   const channelName =
+              //     channel.channel_name ||
+              //     channel.name ||
+              //     `Channel ${channel.channel_id?.slice(0, 8)}` ||
+              //     "Unnamed Channel";
 
-              const channelId = channel.channel_id || channel.id || "N/A";
+              //   const channelId = channel.channel_id || channel.id || "N/A";
 
               return (
                 <div key={channelId} className="channel-card">
