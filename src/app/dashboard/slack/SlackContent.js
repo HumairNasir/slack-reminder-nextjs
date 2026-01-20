@@ -73,7 +73,8 @@ export default function SlackContent() {
 
     const scopes =
       "channels:read,channels:manage,chat:write,groups:read,im:read,mpim:read";
-    const redirectUri = `${window.location.origin}/api/slack/callback`;
+    // const redirectUri = `${window.location.origin}/api/slack/callback`;
+    const redirectUri = `https://slack-reminder-nextjs.vercel.app/api/slack/callback`;
     const state = user.id;
 
     const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;

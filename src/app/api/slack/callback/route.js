@@ -7,9 +7,8 @@ export async function GET(request) {
   const userId = searchParams.get("state");
   const error = searchParams.get("error");
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "https://slack-reminder-nextjs-gglx0cgt0-muhammad-humair-nasirs-projects.vercel.app";
+  // Your Vercel URL
+  const appUrl = "https://slack-reminder-nextjs.vercel.app";
 
   if (error) {
     return NextResponse.redirect(`${appUrl}/dashboard/slack?error=${error}`);
@@ -52,7 +51,7 @@ export async function GET(request) {
       user_id: userId,
       team_id: data.team.id,
       team_name: data.team.name,
-      bot_token: Buffer.from(data.access_token).toString("base64"),
+      bot_token: Buffer.from(data.access_token).toString("base64"), // Simple encryption
       bot_user_id: data.bot_user_id,
       is_active: true,
     });
