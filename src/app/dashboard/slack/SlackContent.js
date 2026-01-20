@@ -243,6 +243,7 @@ export default function SlackContent() {
                     onClick={() => fetchSlackChannels(conn.id)}
                     disabled={loadingChannels}
                   >
+                    Fetch channels
                     {loadingChannels ? "Fetching..." : "Fetch Channels"}
                   </button>
                   <button
