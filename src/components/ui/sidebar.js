@@ -11,7 +11,6 @@ const menuItems = [
   { name: "Slack", icon: Slack, href: "/dashboard/slack" },
   { name: "Billing", icon: Zap, href: "/dashboard/billing" },
   { name: "Settings", icon: Settings, href: "/dashboard/settings" },
-  { name: "Test", icon: Settings, href: "/dashboard/test" },
 ];
 
 export default function Sidebar() {
