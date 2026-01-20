@@ -217,11 +217,12 @@
 .disconnect-btn:hover {
   background-color: #fecaca;
 }
+
 /* Channel Fetching Button */
 .fetch-channels-btn {
   background-color: #3b82f6;
-  color: #dc2626;
-  border: 1px solid #3480fc;
+  color: white;
+  border: none;
   border-radius: 0.375rem;
   padding: 0.5rem 1rem;
   font-weight: 500;
@@ -229,14 +230,14 @@
   transition: background-color 0.2s;
 }
 
-.fetch-channels-btn:hover {
+.fetch-channels-btn:hover:not(:disabled) {
   background-color: #2563eb;
 }
 
-/* .fetch-channels-btn {
+.fetch-channels-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-} */
+}
 
 .connection-actions {
   display: flex;
