@@ -4,19 +4,38 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request) {
   try {
-    const { botToken, connectionId } = await request.json();
+    const { connectionId } = await request.json();
 
-    if (!botToken || !connectionId) {
+    if (!connectionId) {
       return NextResponse.json(
-        { success: false, error: "Missing required parameters" },
+        { success: false, error: "Missing connection ID" },
         { status: 400 },
       );
     }
 
-    // Initialize Slack client
-    const slackClient = new WebClient(botToken);
+    // 1. Get connection from database
+    const supabase = await createClient();
 
-    // Fetch conversations (channels, DMs, groups)
+    const { data: connection, error: dbError } = await supabase
+      .from("slack_connections")
+      .select("*")
+      .eq("id", connectionId)
+      .single();
+
+    if (dbError || !connection) {
+      return NextResponse.json(
+        { success: false, error: "Connection not found" },
+        { status: 404 },
+      );
+    }
+
+    // 2. Decrypt the bot token
+    const botToken = Buffer.from(connection.bot_token, "base64").toString(
+      "utf-8",
+    );
+
+    // 3. Initialize Slack client and fetch channels
+    const slackClient = new WebClient(botToken);
     const result = await slackClient.conversations.list({
       types: "public_channel,private_channel,mpim,im",
       limit: 100,
@@ -34,9 +53,7 @@ export async function POST(request) {
 
     const channels = result.channels || [];
 
-    // Store channels in database
-    const supabase = await createClient();
-
+    // 4. Store channels in database
     const channelData = channels.map((channel) => ({
       connection_id: connectionId,
       channel_id: channel.id,
@@ -45,17 +62,17 @@ export async function POST(request) {
       is_archived: channel.is_archived || false,
     }));
 
-    // Upsert channels to avoid duplicates
     if (channelData.length > 0) {
-      const { error } = await supabase
+      const { error: upsertError } = await supabase
         .from("slack_channels")
         .upsert(channelData, { onConflict: "connection_id,channel_id" });
 
-      if (error) {
-        console.error("Database error:", error);
+      if (upsertError) {
+        console.error("Database upsert error:", upsertError);
       }
     }
 
+    // 5. Return success with channels
     return NextResponse.json({
       success: true,
       channels: channelData,

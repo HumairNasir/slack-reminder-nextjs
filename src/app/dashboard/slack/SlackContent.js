@@ -68,32 +68,14 @@ export default function SlackContent() {
     setMessage({ type: "", text: "" });
 
     try {
-      // Get the specific connection
-      const { data: connection } = await supabase
-        .from("slack_connections")
-        .select("*")
-        .eq("id", connectionId)
-        .eq("user_id", user.id)
-        .single();
-
-      if (!connection) {
-        throw new Error("Connection not found");
-      }
-
-      // Decrypt the bot token (base64 encoded)
-      const botToken = Buffer.from(connection.bot_token, "base64").toString(
-        "utf-8",
-      );
-
-      // Fetch channels from Slack API
+      // Call our new API endpoint (REMOVE the manual database query)
       const response = await fetch("/api/slack/channels", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          botToken,
-          connectionId,
+          connectionId: connectionId, // Only send connectionId
         }),
       });
 
