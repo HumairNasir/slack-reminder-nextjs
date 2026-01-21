@@ -67,21 +67,37 @@ export async function POST(request) {
 
 async function handleCheckoutCompleted(session, supabase) {
   console.log("Checkout completed for session:", session.id);
-  console.log("Customer:", session.customer);
-  console.log("Subscription:", session.subscription);
-  console.log("Metadata:", session.metadata);
 
-  // This is where subscription gets linked to user
-  // We'll implement this in next step
-}
+  const userId = session.metadata?.userId;
+  const customerId = session.customer;
+  const subscriptionId = session.subscription;
 
-async function handleSubscriptionUpdate(subscription, supabase) {
-  console.log("Subscription update:", subscription.id);
-  console.log("Status:", subscription.status);
-  // We'll implement database update in next step
-}
+  if (!userId) {
+    console.error("No user ID in session metadata");
+    return;
+  }
 
-async function handleSubscriptionCancel(subscription, supabase) {
-  console.log("Subscription cancelled:", subscription.id);
-  // We'll implement in next step
+  // Get subscription details from Stripe
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const priceId = subscription.items.data[0].price.id;
+
+  console.log("Saving subscription to database...");
+
+  // Save to subscriptions table
+  const { data, error } = await supabase.from("subscriptions").upsert({
+    user_id: userId,
+    stripe_subscription_id: subscriptionId,
+    stripe_customer_id: customerId,
+    status: subscription.status,
+    current_period_start: new Date(subscription.current_period_start * 1000),
+    current_period_end: new Date(subscription.current_period_end * 1000),
+    cancel_at_period_end: subscription.cancel_at_period_end,
+    updated_at: new Date(),
+  });
+
+  if (error) {
+    console.error("Failed to save subscription:", error);
+  } else {
+    console.log("Subscription saved successfully!");
+  }
 }

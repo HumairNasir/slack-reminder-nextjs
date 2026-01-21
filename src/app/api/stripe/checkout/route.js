@@ -3,35 +3,21 @@ import { stripe } from "@/lib/stripe/client";
 import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request) {
-  console.log("=== CHECKOUT API CALLED ===");
+  // console.log("=== CHECKOUT API CALLED ===");
 
   try {
     const body = await request.json();
-    console.log("Request body:", body);
+    // console.log("Request body:", body);
 
     const { priceId } = body;
 
     if (!priceId) {
-      console.error("No priceId provided");
+      // console.error("No priceId provided");
       return NextResponse.json(
         { error: "Price ID is required" },
         { status: 400 },
       );
     }
-
-    // Check environment variables
-    console.log(
-      "Env check - Supabase URL exists:",
-      !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    );
-    console.log(
-      "Env check - Service role key exists:",
-      !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    );
-    console.log(
-      "Env check - Anon key exists:",
-      !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    );
 
     // Create Supabase client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,16 +25,10 @@ export async function POST(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    console.log(
-      "Creating Supabase client with URL:",
-      supabaseUrl?.substring(0, 30) + "...",
-    );
-
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get auth header
     const authHeader = request.headers.get("authorization");
-    console.log("Auth header present:", !!authHeader);
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.error("No Bearer token in headers");
@@ -59,10 +39,8 @@ export async function POST(request) {
     }
 
     const token = authHeader.split("Bearer ")[1];
-    console.log("Token length:", token?.length);
 
     // Get user from token
-    console.log("Calling supabase.auth.getUser()...");
     const {
       data: { user },
       error: authError,
@@ -77,22 +55,16 @@ export async function POST(request) {
     }
 
     if (!user) {
-      console.error("No user found");
       return NextResponse.json({ error: "User not found" }, { status: 401 });
     }
 
-    console.log("User authenticated:", user.email);
-    console.log("User ID:", user.id);
-
     // Check Stripe client
-    console.log("Stripe client check:", stripe ? "OK" : "Missing");
 
     if (!stripe) {
       throw new Error("Stripe client not initialized");
     }
 
     // Check existing subscription
-    console.log("Checking existing subscriptions...");
     const { data: existingSubscription, error: subError } = await supabase
       .from("subscriptions")
       .select("stripe_customer_id, status")
@@ -104,13 +76,10 @@ export async function POST(request) {
       console.error("Subscription query error:", subError);
     }
 
-    console.log("Existing subscription:", existingSubscription);
-
     // Create or retrieve Stripe customer
     let customerId = existingSubscription?.stripe_customer_id;
 
     if (!customerId) {
-      console.log("Creating new Stripe customer...");
       const customer = await stripe.customers.create({
         email: user.email,
         name: user.user_metadata?.full_name || user.email,
@@ -120,13 +89,10 @@ export async function POST(request) {
         },
       });
       customerId = customer.id;
-      console.log("Created customer:", customerId);
     } else {
-      console.log("Using existing customer:", customerId);
     }
 
     // Create checkout session
-    console.log("Creating Stripe checkout session...");
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
@@ -153,9 +119,6 @@ export async function POST(request) {
         },
       },
     });
-
-    console.log("Checkout session created:", session.id);
-    console.log("Checkout URL:", session.url);
 
     return NextResponse.json({
       success: true,
