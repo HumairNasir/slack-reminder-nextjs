@@ -19,17 +19,33 @@ export default function PricingCard({ plan, isPopular = false }) {
     setLoading(true);
 
     try {
-      // 1. Create checkout session
-      const response = await fetch("/api/stripe/create-checkout", {
+      // 1. Get the current session from Supabase
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session || !session.access_token) {
+        alert("Session expired. Please login again.");
+        return;
+      }
+
+      // 2. Create checkout session WITH auth token
+      const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           priceId: plan.priceId,
-          userId: user.id,
         }),
       });
+
+      // 3. Check for errors
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create checkout session");
+      }
 
       const data = await response.json();
 
@@ -37,11 +53,11 @@ export default function PricingCard({ plan, isPopular = false }) {
         // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
-        throw new Error("Failed to create checkout session");
+        throw new Error("No checkout URL received");
       }
     } catch (error) {
       console.error("Subscription error:", error);
-      alert("Failed to start subscription. Please try again.");
+      alert(error.message || "Failed to start subscription. Please try again.");
     } finally {
       setLoading(false);
     }
