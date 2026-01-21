@@ -44,66 +44,69 @@ async function handleCheckoutCompleted(session, supabase) {
 
 async function handleSubscriptionUpdate(subscription, supabase) {
   console.log("=== SUBSCRIPTION UPDATE START ===");
-  console.log("Subscription ID:", subscription.id);
-  console.log("Status:", subscription.status);
 
   const userId =
     subscription.metadata?.userId || subscription.metadata?.supabaseUserId;
-  console.log("User ID from metadata:", userId);
-
   if (!userId) {
     console.error("ERROR: No user ID in metadata");
     return;
   }
 
   const priceId = subscription.items?.data[0]?.price?.id;
-  console.log("Price ID from subscription:", priceId);
-
   let planId = null;
 
   // Look up plan ID
   if (priceId) {
-    console.log("Looking up plan for price:", priceId);
-    const { data: plan, error: planError } = await supabase
+    const { data: plan } = await supabase
       .from("subscription_plans")
       .select("id")
       .eq("stripe_price_id", priceId)
       .single();
 
-    if (planError) {
-      console.error("Plan lookup error:", planError.message);
-    } else if (plan) {
+    if (plan) {
       planId = plan.id;
-      console.log("Found plan ID:", planId);
+      console.log("Found plan ID:", planId, "for price:", priceId);
     } else {
-      console.log("No plan found for price ID");
+      console.log("No plan found for price:", priceId);
+      // Fallback: Get first plan (Starter) as default
+      const { data: defaultPlan } = await supabase
+        .from("subscription_plans")
+        .select("id")
+        .eq("name", "Starter")
+        .single();
+
+      if (defaultPlan) {
+        planId = defaultPlan.id;
+        console.log("Using default Starter plan ID:", planId);
+      }
     }
   }
 
-  console.log("Attempting to update subscription with plan_id:", planId);
-
-  // Update subscription
+  // UPSERT with ALL required fields
   const { data, error } = await supabase
     .from("subscriptions")
     .upsert({
-      status: subscription.status,
+      user_id: userId,
+      stripe_subscription_id: subscription.id,
+      stripe_customer_id: subscription.customer,
       plan_id: planId,
-      current_period_start: new Date(subscription.current_period_start * 1000),
-      current_period_end: new Date(subscription.current_period_end * 1000),
-      cancel_at_period_end: subscription.cancel_at_period_end,
+      status: subscription.status,
+      current_period_start: subscription.current_period_start
+        ? new Date(subscription.current_period_start * 1000)
+        : null,
+      current_period_end: subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000)
+        : null,
+      cancel_at_period_end: subscription.cancel_at_period_end || false,
       updated_at: new Date(),
     })
-    // .eq("stripe_subscription_id", subscription.id)
-    .select(); // Add select to see what returns
+    .select();
 
   if (error) {
-    console.error("Database update error:", error);
+    console.error("Database error:", error.message);
   } else {
-    console.log("Database update successful. Rows updated:", data?.length);
-    console.log("Updated data:", data);
+    console.log("Subscription saved:", data[0]?.id);
   }
-
-  console.log("=== SUBSCRIPTION UPDATE END ===");
 }
 
 async function handleSubscriptionCancel(subscription, supabase) {
