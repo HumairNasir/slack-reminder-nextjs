@@ -9,7 +9,7 @@ const plans = [
   {
     name: "Starter",
     price: 5,
-    priceId: "price_starter_monthly", // You'll get this from Stripe dashboard
+    priceId: "price_1SruEeERObO1ECpBfwcNFkVh", // You'll get this from Stripe dashboard
     channels: 20,
     reminders: 50,
     recurring: false,
@@ -19,7 +19,7 @@ const plans = [
   {
     name: "Pro",
     price: 10,
-    priceId: "price_pro_monthly",
+    priceId: "price_1SruFNERObO1ECpByv9eUtGU",
     channels: 50,
     reminders: 100,
     recurring: true,
@@ -30,7 +30,7 @@ const plans = [
   {
     name: "Business",
     price: 25,
-    priceId: "price_business_monthly",
+    priceId: "price_1SruFtERObO1ECpB2Y1p6cvu",
     channels: 100,
     reminders: "Unlimited",
     recurring: true,
