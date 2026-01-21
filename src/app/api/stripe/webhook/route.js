@@ -3,10 +3,19 @@ import { stripe } from "@/lib/stripe/client";
 import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request) {
-  console.log("=== STRIPE WEBHOOK RECEIVED ===");
+  console.log("=== PRODUCTION WEBHOOK ===");
+  console.log("Time:", new Date().toISOString());
 
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
+  console.log("Signature present:", !!signature);
+  console.log("Event type from URL:", request.url);
+
+  console.log("NODE_ENV:", process.env.NODE_ENV);
+  console.log(
+    "Has SUPABASE_SERVICE_ROLE_KEY:",
+    !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
 
   let event;
 
