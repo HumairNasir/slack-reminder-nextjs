@@ -85,7 +85,7 @@ async function handleSubscriptionUpdate(subscription, supabase) {
   // Update subscription
   const { data, error } = await supabase
     .from("subscriptions")
-    .update({
+    .upsert({
       status: subscription.status,
       plan_id: planId,
       current_period_start: new Date(subscription.current_period_start * 1000),
@@ -93,7 +93,7 @@ async function handleSubscriptionUpdate(subscription, supabase) {
       cancel_at_period_end: subscription.cancel_at_period_end,
       updated_at: new Date(),
     })
-    .eq("stripe_subscription_id", subscription.id)
+    // .eq("stripe_subscription_id", subscription.id)
     .select(); // Add select to see what returns
 
   if (error) {
