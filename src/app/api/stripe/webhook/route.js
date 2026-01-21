@@ -43,26 +43,47 @@ async function handleCheckoutCompleted(session, supabase) {
 }
 
 async function handleSubscriptionUpdate(subscription, supabase) {
+  console.log("=== SUBSCRIPTION UPDATE START ===");
+  console.log("Subscription ID:", subscription.id);
+  console.log("Status:", subscription.status);
+
   const userId =
     subscription.metadata?.userId || subscription.metadata?.supabaseUserId;
-  if (!userId) return;
+  console.log("User ID from metadata:", userId);
+
+  if (!userId) {
+    console.error("ERROR: No user ID in metadata");
+    return;
+  }
 
   const priceId = subscription.items?.data[0]?.price?.id;
+  console.log("Price ID from subscription:", priceId);
+
   let planId = null;
 
   // Look up plan ID
   if (priceId) {
-    const { data: plan } = await supabase
+    console.log("Looking up plan for price:", priceId);
+    const { data: plan, error: planError } = await supabase
       .from("subscription_plans")
       .select("id")
       .eq("stripe_price_id", priceId)
       .single();
 
-    if (plan) planId = plan.id;
+    if (planError) {
+      console.error("Plan lookup error:", planError.message);
+    } else if (plan) {
+      planId = plan.id;
+      console.log("Found plan ID:", planId);
+    } else {
+      console.log("No plan found for price ID");
+    }
   }
 
+  console.log("Attempting to update subscription with plan_id:", planId);
+
   // Update subscription
-  await supabase
+  const { data, error } = await supabase
     .from("subscriptions")
     .update({
       status: subscription.status,
@@ -72,7 +93,17 @@ async function handleSubscriptionUpdate(subscription, supabase) {
       cancel_at_period_end: subscription.cancel_at_period_end,
       updated_at: new Date(),
     })
-    .eq("stripe_subscription_id", subscription.id);
+    .eq("stripe_subscription_id", subscription.id)
+    .select(); // Add select to see what returns
+
+  if (error) {
+    console.error("Database update error:", error);
+  } else {
+    console.log("Database update successful. Rows updated:", data?.length);
+    console.log("Updated data:", data);
+  }
+
+  console.log("=== SUBSCRIPTION UPDATE END ===");
 }
 
 async function handleSubscriptionCancel(subscription, supabase) {
