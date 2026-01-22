@@ -155,6 +155,11 @@ src/
 - `POST /api/stripe/checkout` - Create payment session
 - `POST /api/stripe/webhook` - Handle payment webhooks
 
+### Scheduler (Automation)
+
+- `GET /api/scheduler/run` - Manual trigger for reminder scheduler
+- `POST /api/scheduler/run` - Manual trigger (alternative)
+
 ## 🎨 Recent Updates
 
 ### v1.0.0 - Complete System
@@ -166,6 +171,9 @@ src/
 - ✅ Stripe subscription management
 - ✅ Mobile-first responsive design
 - ✅ Row Level Security implementation
+- ✅ **Automated reminder scheduler with cron jobs**
+- ✅ **Slack message delivery system**
+- ✅ **Recurring reminder support**
 
 ## 🐛 Troubleshooting
 
@@ -216,6 +224,18 @@ npm run dev      # Start development server
 npm run build    # Build for production
 npm run start    # Start production server
 npm run lint     # Run ESLint
+```
+
+### Testing the Scheduler
+
+Test the reminder scheduler manually:
+
+```bash
+# Test the scheduler function
+node test-scheduler.js
+
+# Or trigger via API
+curl http://localhost:3000/api/scheduler/run
 ```
 
 ## 🚀 Deployment

@@ -1,7 +1,30 @@
 -- Database schema for Slack Reminder System
 -- Run this in Supabase SQL Editor to create the missing tables
 
--- Create reminders table
+-- Add missing columns to existing reminders table
+ALTER TABLE public.reminders
+ADD COLUMN IF NOT EXISTS recurrence_pattern VARCHAR(50) DEFAULT 'none',
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
+ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS error_message TEXT;
+
+-- Update existing records to use new column names
+UPDATE public.reminders
+SET recurrence_pattern = CASE
+  WHEN recurrence = 'once' THEN 'none'
+  WHEN recurrence IS NOT NULL THEN recurrence
+  ELSE 'none'
+END
+WHERE recurrence_pattern IS NULL;
+
+-- Update status values
+UPDATE public.reminders
+SET status = CASE
+  WHEN status = 'active' THEN 'pending'
+  ELSE status
+END;
+
+-- Create reminders table (if it doesn't exist with correct structure)
 CREATE TABLE IF NOT EXISTS public.reminders (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -11,10 +34,13 @@ CREATE TABLE IF NOT EXISTS public.reminders (
     channel_id VARCHAR(255) NOT NULL,
     channel_name VARCHAR(255),
     scheduled_for TIMESTAMPTZ NOT NULL,
-    recurrence VARCHAR(50) DEFAULT 'once', -- 'once', 'daily', 'weekly', 'monthly'
+    recurrence_pattern VARCHAR(50) DEFAULT 'none', -- 'none', 'daily', 'weekly', 'monthly'
     recurrence_end TIMESTAMPTZ, -- when recurring reminders should stop
     timezone VARCHAR(100) DEFAULT 'UTC',
-    status VARCHAR(50) DEFAULT 'active', -- 'active', 'sent', 'cancelled', 'failed'
+    status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'sent', 'cancelled', 'failed'
+    is_active BOOLEAN DEFAULT true,
+    sent_at TIMESTAMPTZ,
+    error_message TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -23,9 +49,12 @@ CREATE TABLE IF NOT EXISTS public.reminders (
 CREATE TABLE IF NOT EXISTS public.reminder_logs (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     reminder_id UUID NOT NULL REFERENCES public.reminders(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    channel_id VARCHAR(255),
     sent_at TIMESTAMPTZ DEFAULT NOW(),
-    status VARCHAR(50) NOT NULL, -- 'success', 'failed', 'error'
+    status VARCHAR(50) NOT NULL, -- 'sent', 'failed'
     error_message TEXT,
+    slack_message_ts VARCHAR(255), -- Slack message timestamp
     slack_response JSONB, -- Store the full Slack API response
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -35,7 +64,9 @@ CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON public.reminders(user_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_status ON public.reminders(status);
 CREATE INDEX IF NOT EXISTS idx_reminders_scheduled_for ON public.reminders(scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_reminders_connection_id ON public.reminders(connection_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_is_active ON public.reminders(is_active);
 CREATE INDEX IF NOT EXISTS idx_reminder_logs_reminder_id ON public.reminder_logs(reminder_id);
+CREATE INDEX IF NOT EXISTS idx_reminder_logs_user_id ON public.reminder_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_reminder_logs_sent_at ON public.reminder_logs(sent_at);
 
 -- Enable Row Level Security (RLS) for existing tables
@@ -43,6 +74,8 @@ ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.slack_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.slack_channels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reminders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reminder_logs ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for subscriptions table
 CREATE POLICY "Users can view their own subscriptions" ON public.subscriptions
