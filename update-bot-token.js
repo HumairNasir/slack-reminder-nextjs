@@ -12,7 +12,7 @@ async function updateBotToken() {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  // SECURITY: Get token from environment variable instead of hardcoding
+  // SECURITY: Get token from environment variable
   const realBotToken = process.env.SLACK_BOT_TOKEN;
 
   if (!realBotToken) {
