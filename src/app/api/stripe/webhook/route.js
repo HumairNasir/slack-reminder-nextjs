@@ -4,6 +4,29 @@ import { createClient } from "@supabase/supabase-js";
 
 // ========== HELPER FUNCTIONS ==========
 
+async function syncSubscriptionStatus(subscriptionId, supabase) {
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    await supabase
+      .from("subscriptions")
+      .update({
+        status: subscription.status,
+        current_period_start: new Date(
+          subscription.current_period_start * 1000,
+        ),
+        current_period_end: new Date(subscription.current_period_end * 1000),
+        updated_at: new Date(),
+      })
+      .eq("stripe_subscription_id", subscriptionId);
+
+    return subscription.status;
+  } catch (error) {
+    console.error("Error syncing subscription status:", error.message);
+    return null;
+  }
+}
+
 async function handleCheckoutCompleted(session, supabase) {
   const userId = session.metadata?.userId;
   const customerId = session.customer;
@@ -119,6 +142,35 @@ async function handleSubscriptionCancel(subscription, supabase) {
     .eq("stripe_subscription_id", subscription.id);
 }
 
+async function handleInvoicePaymentSucceeded(invoice, supabase) {
+  console.log("=== INVOICE PAYMENT SUCCEEDED ===");
+
+  const subscriptionId = invoice.subscription;
+  if (!subscriptionId) return;
+
+  try {
+    // Get the latest subscription data from Stripe
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    // Update our database with the latest status
+    await supabase
+      .from("subscriptions")
+      .update({
+        status: subscription.status,
+        current_period_start: new Date(
+          subscription.current_period_start * 1000,
+        ),
+        current_period_end: new Date(subscription.current_period_end * 1000),
+        updated_at: new Date(),
+      })
+      .eq("stripe_subscription_id", subscriptionId);
+
+    console.log("Subscription status updated to:", subscription.status);
+  } catch (error) {
+    console.error("Invoice payment success handler error:", error.message);
+  }
+}
+
 // ========== MAIN WEBHOOK HANDLER ==========
 
 export async function POST(request) {
@@ -175,6 +227,10 @@ export async function POST(request) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
         await handleSubscriptionUpdate(event.data.object, supabaseAdmin);
+        break;
+
+      case "invoice.payment_succeeded":
+        await handleInvoicePaymentSucceeded(event.data.object, supabaseAdmin);
         break;
 
       case "customer.subscription.deleted":

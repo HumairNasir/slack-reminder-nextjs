@@ -169,6 +169,28 @@ src/
 
 ## 🐛 Troubleshooting
 
+### Subscription Status Shows "Incomplete"
+
+If subscriptions show "incomplete" status after payment:
+
+1. **Normal Behavior**: "Incomplete" is Stripe's initial status when payment requires authentication (3D Secure)
+2. **Wait for Webhooks**: Status updates to "active" once payment is confirmed
+3. **Manual Sync**: Use the sync endpoint to force status update:
+   ```bash
+   curl -X POST /api/stripe/sync-subscriptions \
+     -H "Content-Type: application/json" \
+     -d '{"userId": "your-user-id"}'
+   ```
+4. **Check Webhook Logs**: Ensure Stripe webhooks are reaching your endpoint
+5. **Stripe Dashboard**: Verify webhook events are being sent from Stripe
+
+### Stripe Webhook Events Handled
+
+- `checkout.session.completed` - Initial subscription creation
+- `customer.subscription.updated` - Status changes
+- `invoice.payment_succeeded` - Payment confirmations
+- `customer.subscription.deleted` - Cancellations
+
 ### Subscription Data Not Showing
 
 1. Run `fix-rls-policies.sql` in Supabase SQL Editor
