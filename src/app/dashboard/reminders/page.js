@@ -8,10 +8,12 @@ export default function RemindersPage() {
   const [limits, setLimits] = useState(null);
   const [loading, setLoading] = useState(true);
   const [canCreate, setCanCreate] = useState(false);
+  const [reminders, setReminders] = useState([]);
+  const [remindersLoading, setRemindersLoading] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
-    async function checkLimits() {
+    async function loadData() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -21,14 +23,65 @@ export default function RemindersPage() {
         return;
       }
 
+      // Load subscription limits
       const limitsData = await checkUserLimits(user.id);
       setLimits(limitsData);
       setCanCreate(limitsData.allowed && limitsData.limits?.canAddReminder);
+
+      // Load user's reminders
+      await loadReminders(user.id);
+
       setLoading(false);
     }
 
-    checkLimits();
+    loadData();
   }, []);
+
+  // Refresh reminders when page becomes visible (after creating a reminder)
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          await loadReminders(user.id);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  const loadReminders = async (userId) => {
+    setRemindersLoading(true);
+    try {
+      const { data: remindersData, error } = await supabase
+        .from("reminders")
+        .select(
+          `
+          *,
+          slack_connections(team_name)
+        `,
+        )
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading reminders:", error);
+        return;
+      }
+
+      setReminders(remindersData || []);
+    } catch (error) {
+      console.error("Error loading reminders:", error);
+    } finally {
+      setRemindersLoading(false);
+    }
+  };
 
   const handleCreateReminder = () => {
     if (!limits?.allowed) {
@@ -44,9 +97,7 @@ export default function RemindersPage() {
     }
 
     // Redirect to reminder creation form
-    // or show form modal
-    alert("Opening reminder creation form...");
-    // window.location.href = "/dashboard/reminders/create";
+    window.location.href = "/dashboard/reminders/create";
   };
 
   if (loading) {
@@ -109,9 +160,70 @@ export default function RemindersPage() {
       </div>
 
       <div className="reminders-list">
-        <h3>Your Reminders</h3>
-        <p>No reminders yet. Create your first one!</p>
-        {/* Reminders list will go here */}
+        <div className="reminders-header">
+          <h3>Your Reminders</h3>
+          <button
+            onClick={async () => {
+              const {
+                data: { user },
+              } = await supabase.auth.getUser();
+              if (user) await loadReminders(user.id);
+            }}
+            className="refresh-btn"
+            disabled={remindersLoading}
+          >
+            {remindersLoading ? "🔄" : "↻"} Refresh
+          </button>
+        </div>
+
+        {remindersLoading ? (
+          <p>Loading reminders...</p>
+        ) : reminders.length === 0 ? (
+          <p>No reminders yet. Create your first one!</p>
+        ) : (
+          <div className="reminders-grid">
+            {reminders.map((reminder) => (
+              <div key={reminder.id} className="reminder-card">
+                <div className="reminder-header">
+                  <h4>{reminder.title}</h4>
+                  <span className={`status-badge status-${reminder.status}`}>
+                    {reminder.status}
+                  </span>
+                </div>
+
+                <div className="reminder-content">
+                  <p className="reminder-message">{reminder.message}</p>
+
+                  <div className="reminder-details">
+                    <div className="detail-item">
+                      <strong>Workspace:</strong>{" "}
+                      {reminder.slack_connections?.team_name || "Unknown"}
+                    </div>
+                    <div className="detail-item">
+                      <strong>Channel:</strong>{" "}
+                      {reminder.channel_name || reminder.channel_id}
+                    </div>
+                    <div className="detail-item">
+                      <strong>Scheduled:</strong>{" "}
+                      {new Date(reminder.scheduled_for).toLocaleString()}
+                    </div>
+                    <div className="detail-item">
+                      <strong>Recurrence:</strong> {reminder.recurrence}
+                    </div>
+                    <div className="detail-item">
+                      <strong>Timezone:</strong> {reminder.timezone}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="reminder-actions">
+                  <button className="edit-btn">Edit</button>
+                  <button className="delete-btn">Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

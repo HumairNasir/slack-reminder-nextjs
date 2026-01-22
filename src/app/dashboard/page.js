@@ -3,7 +3,9 @@
 import { useAuth } from "@/context/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { checkUserLimits } from "@/lib/subscription/checkLimits";
+import { createClient } from "@/lib/supabase/client";
 import "./dashboard.css";
 
 export default function DashboardPage() {
@@ -11,12 +13,61 @@ export default function DashboardPage() {
   const { role, loading: roleLoading } = useUserRole();
   const router = useRouter();
 
+  const [dashboardStats, setDashboardStats] = useState({
+    subscriptionPlan: "Loading...",
+    slackConnected: false,
+    activeReminders: 0,
+  });
+
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
     }
   }, [user, authLoading, router]);
+
+  // Fetch dashboard stats
+  useEffect(() => {
+    async function fetchDashboardStats() {
+      if (!user) return;
+
+      try {
+        // Get subscription data
+        const subscriptionData = await checkUserLimits(user.id);
+        console.log("Subscription data:", subscriptionData);
+
+        // Get Slack connection status
+        const supabase = createClient();
+        const { count: connectionsCount } = await supabase
+          .from("slack_connections")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("is_active", true);
+
+        // Get active reminders count
+        const { count: remindersCount } = await supabase
+          .from("reminders")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("is_active", true);
+
+        setDashboardStats({
+          subscriptionPlan: subscriptionData.plan?.name || "Free Plan",
+          slackConnected: (connectionsCount || 0) > 0,
+          activeReminders: remindersCount || 0,
+        });
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+        setDashboardStats({
+          subscriptionPlan: "Error loading",
+          slackConnected: false,
+          activeReminders: 0,
+        });
+      }
+    }
+
+    fetchDashboardStats();
+  }, [user]);
 
   if (authLoading || roleLoading) {
     return (
@@ -45,14 +96,18 @@ export default function DashboardPage() {
         {/* Subscription Card */}
         <div className="stat-card">
           <h3 className="stat-title">Subscription</h3>
-          <p className="stat-number">Free Plan</p>
+          <p className="stat-number">{dashboardStats.subscriptionPlan}</p>
           <button className="action-btn primary-btn">Upgrade</button>
         </div>
 
         {/* Slack Connection Card */}
         <div className="stat-card">
           <h3 className="stat-title">Slack Connection</h3>
-          <p className="stat-number error">Not Connected</p>
+          <p
+            className={`stat-number ${dashboardStats.slackConnected ? "success" : "error"}`}
+          >
+            {dashboardStats.slackConnected ? "Connected" : "Not Connected"}
+          </p>
           <button
             className="action-btn success-btn"
             onClick={() =>
@@ -61,14 +116,14 @@ export default function DashboardPage() {
               )
             }
           >
-            Connect Slack
+            {dashboardStats.slackConnected ? "Manage Slack" : "Connect Slack"}
           </button>
         </div>
 
         {/* Active Reminders Card */}
         <div className="stat-card">
           <h3 className="stat-title">Active Reminders</h3>
-          <p className="stat-number">0</p>
+          <p className="stat-number">{dashboardStats.activeReminders}</p>
           <button className="action-btn dark-btn">Create Reminder</button>
         </div>
       </div>

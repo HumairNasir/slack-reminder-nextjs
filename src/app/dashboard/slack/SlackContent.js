@@ -68,7 +68,7 @@ export default function SlackContent() {
     setMessage({ type: "", text: "" });
 
     try {
-      // Call our new API endpoint (REMOVE the manual database query)
+      // Call our new API endpoint
       const response = await fetch("/api/slack/channels", {
         method: "POST",
         headers: {

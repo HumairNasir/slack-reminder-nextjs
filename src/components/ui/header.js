@@ -1,13 +1,13 @@
 "use client";
 
-import { Bell, User, LogOut } from "lucide-react";
+import { Bell, User, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import "./header.css";
 
-export default function Header() {
+export default function Header({ sidebarOpen, setSidebarOpen }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const supabase = createClient();
@@ -39,6 +39,18 @@ export default function Header() {
 
   return (
     <header className="header">
+      <button
+        className="sidebar-toggle"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        aria-label="Toggle sidebar"
+      >
+        {sidebarOpen ? (
+          <X className="toggle-icon" />
+        ) : (
+          <Menu className="toggle-icon" />
+        )}
+      </button>
+
       <div className="header-logo">
         <div className="logo-icon" />
         <h1>Slack Reminder</h1>
