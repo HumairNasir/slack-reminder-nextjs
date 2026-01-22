@@ -2,6 +2,7 @@
 -- Run this in Supabase SQL Editor to create the missing tables
 
 -- Add missing columns to existing reminders table
+-- Add missing columns to existing reminders table
 ALTER TABLE public.reminders
 ADD COLUMN IF NOT EXISTS recurrence_pattern VARCHAR(50) DEFAULT 'none',
 ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
