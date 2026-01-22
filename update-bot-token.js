@@ -12,8 +12,15 @@ async function updateBotToken() {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
-  const realBotToken =
-    "xoxb-10327840764900-10331541929426-JnkSkThOzneEbJ6S8HqfX1yd";
+  // SECURITY: Get token from environment variable instead of hardcoding
+  const realBotToken = process.env.SLACK_BOT_TOKEN;
+
+  if (!realBotToken) {
+    console.error("❌ SLACK_BOT_TOKEN environment variable not set!");
+    console.log("Set it in your .env.local file:");
+    console.log("SLACK_BOT_TOKEN=xoxb-your-bot-token-here");
+    return;
+  }
 
   try {
     // Update the bot token for the existing connection
