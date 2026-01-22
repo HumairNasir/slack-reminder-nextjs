@@ -28,10 +28,10 @@ A modern, full-featured Slack reminder scheduling application built with Next.js
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: Next.js 16 with React 19, Tailwind CSS
+- **Frontend**: Next.js 16 with React 19, CSS
 - **Backend**: Next.js API Routes, Supabase (Database + Auth)
 - **External APIs**: Slack Web API, Stripe Payments
-- **Styling**: Tailwind CSS with custom components
+- **Styling**: CSS with custom components
 - **Date Handling**: date-fns for scheduling and time zones
 - **Icons**: Lucide React icons
 
