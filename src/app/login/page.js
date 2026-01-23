@@ -20,22 +20,57 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // 1. Authenticate the User
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        setError(error.message);
-      } else {
-        router.push("/dashboard");
-        router.refresh();
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
       }
+
+      if (!user) {
+        setError("No user found.");
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fetch role from users table
+      const { data: profile, error: roleError } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (roleError) {
+        console.warn("Could not fetch user role:", roleError.message);
+      }
+
+      const userRole = profile?.role || "user";
+      console.log("Login successful. Role:", userRole);
+
+      // 3. Redirect based on Role - ONLY CALL THIS ONCE
+      const redirectPath = userRole === "super_admin" ? "/admin" : "/dashboard";
+      console.log("Redirecting to:", redirectPath);
+
+      // Use window.location for full page reload to clear any stale state
+      window.location.href = redirectPath;
+
+      // OR if you prefer router:
+      // router.push(redirectPath);
+      // router.refresh();
     } catch (err) {
+      console.error("Login error:", err);
       setError("An unexpected error occurred");
-    } finally {
       setLoading(false);
     }
+    // Note: We don't set loading(false) on success because page will redirect
   };
 
   return (

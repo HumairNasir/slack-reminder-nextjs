@@ -34,7 +34,7 @@ export default function DashboardPage() {
       try {
         // Get subscription data
         const subscriptionData = await checkUserLimits(user.id);
-        console.log("Subscription data:", subscriptionData);
+        // console.log("Subscription data:", subscriptionData);
 
         // Get Slack connection status
         const supabase = createClient();

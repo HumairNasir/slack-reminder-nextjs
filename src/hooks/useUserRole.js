@@ -1,7 +1,41 @@
+// "use client";
+
+// import { useEffect, useState } from "react";
+// import { createClient } from "@/lib/supabase/client";
+
+// export function useUserRole() {
+//   const [role, setRole] = useState(null);
+//   const [loading, setLoading] = useState(true);
+//   const supabase = createClient();
+
+//   useEffect(() => {
+//     async function getUserRole() {
+//       const {
+//         data: { user },
+//       } = await supabase.auth.getUser();
+
+//       if (user) {
+//         const { data: profile } = await supabase
+//           .from("users")
+//           .select("role")
+//           .eq("id", user.id)
+//           .single();
+
+//         setRole(profile?.role || "user");
+//       }
+
+//       setLoading(false);
+//     }
+
+//     getUserRole();
+//   }, []);
+
+//   return { role, loading };
+// }
 "use client";
 
-import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
 
 export function useUserRole() {
   const [role, setRole] = useState(null);
@@ -9,26 +43,38 @@ export function useUserRole() {
   const supabase = createClient();
 
   useEffect(() => {
-    async function getUserRole() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    async function fetchUserRole() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (user) {
-        const { data: profile } = await supabase
+        if (!user) {
+          setRole(null);
+          setLoading(false);
+          return;
+        }
+
+        const { data: profile, error } = await supabase
           .from("users")
           .select("role")
           .eq("id", user.id)
           .single();
 
-        setRole(profile?.role || "user");
-      }
+        console.log("useUserRole: Fetched profile:", profile);
+        console.log("useUserRole: Error:", error);
 
-      setLoading(false);
+        setRole(profile?.role || null);
+      } catch (error) {
+        console.error("useUserRole error:", error);
+        setRole(null);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    getUserRole();
-  }, []);
+    fetchUserRole();
+  }, [supabase]);
 
   return { role, loading };
 }

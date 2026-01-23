@@ -1,7 +1,7 @@
 // Client-side function that calls the API route with user ID
 export async function checkUserLimits(userId) {
-  console.log("=== checkUserLimits START ===");
-  console.log("Input userId:", userId);
+  // console.log("=== checkUserLimits START ===");
+  // console.log("Input userId:", userId);
 
   try {
     console.log(
@@ -20,13 +20,13 @@ export async function checkUserLimits(userId) {
       },
     );
 
-    console.log("API response status:", response.status);
-    console.log("API response ok:", response.ok);
+    // console.log("API response status:", response.status);
+    // console.log("API response ok:", response.ok);
 
     let result;
     try {
       result = await response.json();
-      console.log("API response data:", result);
+      // console.log("API response data:", result);
     } catch (parseError) {
       console.error("Failed to parse JSON response:", parseError);
       throw new Error("Invalid JSON response from API");
@@ -37,8 +37,8 @@ export async function checkUserLimits(userId) {
       throw new Error(`API error: ${result.error || "Unknown error"}`);
     }
 
-    console.log("=== checkUserLimits END ===");
-    console.log("Final result:", result.data);
+    // console.log("=== checkUserLimits END ===");
+    // console.log("Final result:", result.data);
 
     return result.data;
   } catch (error) {

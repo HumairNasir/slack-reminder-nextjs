@@ -19,6 +19,11 @@ DROP POLICY IF EXISTS "Service role can manage all connections" ON public.slack_
 DROP POLICY IF EXISTS "Users can view channels for their connections" ON public.slack_channels;
 DROP POLICY IF EXISTS "Users can insert channels for their connections" ON public.slack_channels;
 DROP POLICY IF EXISTS "Service role can manage all channels" ON public.slack_channels;
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.users;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.users;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.users;
+DROP POLICY IF EXISTS "Super admins can view all user profiles" ON public.users;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.users; -- REMOVE THIS CRITICAL POLICY
 
 -- Create RLS policies for subscriptions table
 CREATE POLICY "Users can view their own subscriptions" ON public.subscriptions
@@ -68,3 +73,47 @@ CREATE POLICY "Users can insert channels for their connections" ON public.slack_
 
 CREATE POLICY "Service role can manage all channels" ON public.slack_channels
     FOR ALL USING (auth.role() = 'service_role');
+
+-- Enable RLS for the users table
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies for the users table
+CREATE POLICY "Users can view their own profile" ON public.users
+    FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update their own profile" ON public.users
+    FOR UPDATE USING (auth.uid() = id);
+
+-- Assuming 'user' is the default role for new registrations and preventing self-elevation to super_admin
+CREATE POLICY "Enable insert for authenticated users" ON public.users
+    FOR INSERT WITH CHECK (auth.uid() = id AND role = 'user');
+
+-- Super admins can view all user profiles
+CREATE POLICY "Super admins can view all user profiles" ON public.users
+    FOR SELECT USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'super_admin'));
+
+-- IMPORTANT: The problematic "Admins can view all profiles" (ALL, public) policy
+-- should be DELETED manually from the Supabase UI if it exists, as an ALL policy
+-- for 'public' is a severe security vulnerability. This script does not recreate it.
+
+-- Enable RLS for the users table
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies for the users table
+CREATE POLICY "Users can view their own profile" ON public.users
+    FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update their own profile" ON public.users
+    FOR UPDATE USING (auth.uid() = id);
+
+-- Assuming 'user' is the default role for new registrations and preventing self-elevation to super_admin
+CREATE POLICY "Enable insert for authenticated users" ON public.users
+    FOR INSERT WITH CHECK (auth.uid() = id AND role = 'user');
+
+-- Super admins can view all user profiles
+CREATE POLICY "Super admins can view all user profiles" ON public.users
+    FOR SELECT USING (((SELECT role FROM public.users WHERE id = auth.uid()) = 'super_admin'));
+
+-- IMPORTANT: The problematic "Admins can view all profiles" (ALL, public) policy
+-- should be DELETED manually from the Supabase UI if it exists, as an ALL policy
+-- for 'public' is a severe security vulnerability. This script does not recreate it.

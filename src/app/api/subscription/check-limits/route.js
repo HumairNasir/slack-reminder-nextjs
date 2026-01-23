@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export async function GET(request) {
-  console.log("=== API ROUTE CALLED: /api/subscription/check-limits ===");
+  // console.log("=== API ROUTE CALLED: /api/subscription/check-limits ===");
 
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
-    console.log("Requested userId:", userId);
+    // console.log("Requested userId:", userId);
 
     if (!userId) {
-      console.log("No userId provided");
+      // console.log("No userId provided");
       return NextResponse.json(
         { success: false, error: "User ID required" },
         { status: 400 },
@@ -24,10 +24,10 @@ export async function GET(request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    console.log("Service role client created");
+    // console.log("Service role client created");
 
     // Get user's subscription
-    console.log("Querying subscriptions for user:", userId);
+    // console.log("Querying subscriptions for user:", userId);
     const { data: subscription, error: subError } = await supabase
       .from("subscriptions")
       .select("status, plan_id")
@@ -35,10 +35,10 @@ export async function GET(request) {
       .in("status", ["active", "trialing"])
       .single();
 
-    console.log("Subscription query result:", {
-      data: subscription,
-      error: subError,
-    });
+    // console.log("Subscription query result:", {
+    //   data: subscription,
+    //   error: subError,
+    // });
 
     let plan = null;
     let limits = {
@@ -102,7 +102,7 @@ export async function GET(request) {
       limits: limits,
     };
 
-    console.log("API returning result:", result);
+    // console.log("API returning result:", result);
 
     return NextResponse.json({
       success: true,

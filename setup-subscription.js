@@ -30,12 +30,12 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function setupSubscription() {
-  console.log("🚀 Setting up test subscription for user...\n");
-  console.log("User ID: e2e355f2-d823-4f15-ade9-d9bb4c1311e6");
+  // console.log("🚀 Setting up test subscription for user...\n");
+  // console.log("User ID: e2e355f2-d823-4f15-ade9-d9bb4c1311e6");
 
   try {
     // First, create or update subscription plan
-    console.log("📝 Ensuring subscription plan exists...");
+    // console.log("📝 Ensuring subscription plan exists...");
     const { error: planError } = await supabase
       .from("subscription_plans")
       .upsert({
@@ -55,7 +55,7 @@ async function setupSubscription() {
     }
 
     // Create or update subscription for the user
-    console.log("📝 Creating/updating subscription...");
+    // console.log("📝 Creating/updating subscription...");
     const { error: subError } = await supabase.from("subscriptions").upsert({
       user_id: "e2e355f2-d823-4f15-ade9-d9bb4c1311e6",
       plan_id: "basic-plan-id",
@@ -66,14 +66,14 @@ async function setupSubscription() {
       ).toISOString(), // 30 days from now
     });
 
-    if (subError) {
-      console.log("❌ Error with subscription:", subError.message);
-    } else {
-      console.log("✅ User subscription created/updated");
-    }
+    // if (subError) {
+    //   console.log("❌ Error with subscription:", subError.message);
+    // } else {
+    //   console.log("✅ User subscription created/updated");
+    // }
 
-    console.log("\n🎉 Test subscription setup complete!");
-    console.log("🔍 The user should now be able to create reminders.");
+    // console.log("\n🎉 Test subscription setup complete!");
+    // console.log("🔍 The user should now be able to create reminders.");
   } catch (error) {
     console.error("❌ Error:", error);
   }

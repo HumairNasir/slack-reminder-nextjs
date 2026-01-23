@@ -8,7 +8,7 @@ import { WebClient } from "@slack/web-api";
  * Called by cron job every minute
  */
 export async function sendDueReminders() {
-  console.log("=== SCHEDULER: Starting reminder check ===");
+  // console.log("=== SCHEDULER: Starting reminder check ===");
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,7 +18,7 @@ export async function sendDueReminders() {
   try {
     // 1. Find all reminders that are due now
     const now = new Date();
-    console.log("Checking for reminders due before:", now.toISOString());
+    // console.log("Checking for reminders due before:", now.toISOString());
 
     // First, get due reminders
     // Note: is_active column will be added via schema update
@@ -33,7 +33,7 @@ export async function sendDueReminders() {
       return { success: false, error: queryError.message };
     }
 
-    console.log(`Found ${dueReminders?.length || 0} due reminders`);
+    // console.log(`Found ${dueReminders?.length || 0} due reminders`);
 
     if (!dueReminders || dueReminders.length === 0) {
       return { success: true, sent: 0, message: "No due reminders" };
@@ -65,7 +65,7 @@ export async function sendDueReminders() {
       (reminder) => connectionMap[reminder.connection_id],
     );
 
-    console.log(`Valid reminders with connections: ${validReminders.length}`);
+    // console.log(`Valid reminders with connections: ${validReminders.length}`);
 
     // 2. Group reminders by user to batch API calls
     const remindersByUser = {};
@@ -187,7 +187,7 @@ export async function sendDueReminders() {
  * Handle recurring reminders by creating next occurrence
  */
 export async function handleRecurringReminders() {
-  console.log("=== HANDLING RECURRING REMINDERS ===");
+  // console.log("=== HANDLING RECURRING REMINDERS ===");
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -242,7 +242,7 @@ export async function handleRecurringReminders() {
       }
     }
 
-    console.log(`Created ${created} recurring reminder instances`);
+    // console.log(`Created ${created} recurring reminder instances`);
     return { success: true, created };
   } catch (error) {
     console.error("Recurring reminders error:", error);
