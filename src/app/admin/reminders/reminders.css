@@ -1,0 +1,145 @@
+/* app/admin/reminders/reminders.css */
+
+.reminders-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.reminders-page-title {
+  margin-bottom: 0 !important;
+}
+
+/* Filter Tabs (Reusing similar style to Logs) */
+.filter-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto; /* Handle many tabs on mobile */
+  padding-bottom: 2px;
+}
+
+.filter-tab {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background-color: white;
+  color: #6b7280;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.filter-tab:hover {
+  background-color: #f9fafb;
+}
+
+.filter-tab.active {
+  border-color: #4f46e5;
+  background-color: #eff6ff;
+  color: #4f46e5;
+}
+
+.reminders-card {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.loading-container {
+  padding: 3rem;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  color: #6b7280;
+}
+
+.loader-icon {
+  margin-bottom: 1rem;
+  color: #4f46e5;
+}
+
+/* Table Text Styles */
+.title-text {
+  font-weight: 600;
+  color: #111827;
+}
+
+.channel-text {
+  font-family: monospace;
+  background: #f3f4f6;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.message-cell {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.user-email-text {
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.empty-state-cell {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+}
+
+/* Specific Badge Colors */
+.badge.sent {
+  background-color: #dbeafe;
+  color: #1e40af;
+} /* Blue */
+.badge.active {
+  background-color: #dcfce7;
+  color: #166534;
+} /* Green */
+.badge.failed {
+  background-color: #fee2e2;
+  color: #991b1b;
+} /* Red */
+.badge.paused {
+  background-color: #fef3c7;
+  color: #92400e;
+} /* Yellow */
+.badge.pending {
+  background-color: #f3f4f6;
+  color: #374151;
+} /* Gray */
+
+/* RESPONSIVE: Stack Header on Mobile */
+@media (max-width: 900px) {
+  .reminders-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .filter-tabs {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 0.5rem;
+    justify-content: flex-start;
+
+    /* Hide scrollbar for cleaner look (optional) */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Hide scrollbar for Chrome/Safari/Opera */
+  .filter-tabs::-webkit-scrollbar {
+    display: none;
+  }
+}

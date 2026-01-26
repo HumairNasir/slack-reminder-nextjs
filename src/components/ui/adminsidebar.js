@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Users, FileText } from "lucide-react"; // Using Lucide icons to match
+import { BarChart3, Users, FileText, Bell } from "lucide-react"; // Using Lucide icons to match
 import "./sidebar.css";
 // import "./adminsidebar.css";
 
@@ -10,6 +10,7 @@ import "./sidebar.css";
 const menuItems = [
   { name: "Overview", icon: BarChart3, href: "/admin" },
   { name: "Users", icon: Users, href: "/admin/users" },
+  { name: "Reminders", icon: Bell, href: "/admin/reminders" },
   { name: "System Logs", icon: FileText, href: "/admin/logs" },
 ];
 
