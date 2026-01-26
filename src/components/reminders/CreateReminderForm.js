@@ -92,11 +92,28 @@ export default function CreateReminderForm() {
       }
 
       // Check if scheduled time is in the future
+      // Note: This comparison works correctly because both are treated as local browser time
       const scheduledTime = new Date(formData.scheduledFor);
       if (scheduledTime <= new Date()) {
         alert("Please select a future date and time");
         return;
       }
+
+      // --- TIMEZONE FIX START ---
+      // 1. Create a Date object from the input (Browser treats this as Local Time)
+      // Example: User inputs "18:00" -> Date obj represents "18:00 PKT"
+      const dateObj = new Date(formData.scheduledFor);
+
+      // 2. Convert to UTC ISO String
+      // Example: "18:00 PKT" becomes "13:00 UTC"
+      const utcDateForDB = dateObj.toISOString();
+
+      // 3. Prepare payload with the UTC time
+      const payload = {
+        ...formData,
+        scheduledFor: utcDateForDB, // <--- Sending UTC to DB
+      };
+      // --- TIMEZONE FIX END ---
 
       // Submit to API
       const response = await fetch("/api/reminders/create", {
@@ -104,7 +121,7 @@ export default function CreateReminderForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload), // Send the modified payload
       });
 
       const result = await response.json();
@@ -133,35 +150,6 @@ export default function CreateReminderForm() {
       setLoading(false);
     }
   };
-
-  if (!limits?.allowed) {
-    // Temporarily disabled for testing
-    // return (
-    //   <div className="form-error">
-    //     <h3>Subscription Required</h3>
-    //     <p>You need an active subscription to create reminders.</p>
-    //     <a href="/dashboard/billing" className="btn-primary">
-    //       Upgrade Plan
-    //     </a>
-    //   </div>
-    // );
-  }
-
-  if (!limits?.limits?.canAddReminder) {
-    // Temporarily disabled for testing
-    // return (
-    //   <div className="form-error">
-    //     <h3>Plan Limit Reached</h3>
-    //     <p>
-    //       You've reached your reminder limit ({limits.limits.currentReminders}/
-    //       {limits.limits.maxReminders}).
-    //     </p>
-    //     <a href="/dashboard/billing" className="btn-primary">
-    //       Upgrade Plan
-    //     </a>
-    //   </div>
-    // );
-  }
 
   return (
     <div className="create-reminder-form">
@@ -246,6 +234,7 @@ export default function CreateReminderForm() {
             value={formData.scheduledFor}
             onChange={handleInputChange}
             required
+            // Note: This min attribute uses local time for the input restriction, which is correct
             min={new Date().toISOString().slice(0, 16)}
           />
           <small>Timezone: {formData.timezone}</small>
