@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/context/AuthContext"; // Import useAuth
 import "./sidebar.css";
 
 const menuItems = [
@@ -13,38 +14,46 @@ const menuItems = [
   { name: "Slack", icon: Slack, href: "/dashboard/slack" },
   { name: "Billing", icon: Zap, href: "/dashboard/billing" },
   { name: "Settings", icon: Settings, href: "/dashboard/settings" },
-  { name: "Test", icon: Settings, href: "/dashboard/test" },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
+  const { user } = useAuth(); // Use the context hook instead of manual fetch
   const [stats, setStats] = useState({
     activeReminders: 0,
     slackChannels: 0,
   });
 
   useEffect(() => {
+    // 1. If no user yet, don't try to fetch
+    if (!user) return;
+
+    const supabase = createClient();
+
     async function fetchStats() {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
       // Fetch active reminders count
-      const { count: remindersCount } = await supabase
+      const { count: remindersCount, error: reminderError } = await supabase
         .from("reminders")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id)
-        .eq("is_active", true);
+        .eq("status", "active");
 
-      // Fetch Slack connections count (each connection = 1 workspace)
-      const { count: connectionsCount } = await supabase
+      if (reminderError)
+        console.error("❌ Reminder Stats Error:", reminderError);
+
+      // Fetch Slack connections count
+      const { count: connectionsCount, error: connError } = await supabase
         .from("slack_connections")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id)
         .eq("is_active", true);
+
+      if (connError) console.error("❌ Connection Stats Error:", connError);
+
+      // console.log("✅ Stats Found:", {
+      //   reminders: remindersCount,
+      //   connections: connectionsCount,
+      // });
 
       setStats({
         activeReminders: remindersCount || 0,
@@ -53,7 +62,24 @@ export default function Sidebar({ isOpen, onClose }) {
     }
 
     fetchStats();
-  }, []);
+
+    // Subscribe to changes so the badge updates automatically
+    const channel = supabase
+      .channel("sidebar_stats")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reminders" },
+        () => {
+          console.log("🔄 Realtime update: Reminders changed");
+          fetchStats();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]); // Re-run when 'user' becomes available
 
   return (
     <>
@@ -75,6 +101,14 @@ export default function Sidebar({ isOpen, onClose }) {
                     >
                       <item.icon className="menu-icon" />
                       <span>{item.name}</span>
+
+                      {/* Optional: Add badge for active reminders on the Reminders tab */}
+                      {item.name === "Reminders" &&
+                        stats.activeReminders > 0 && (
+                          <span className="menu-badge">
+                            {stats.activeReminders}
+                          </span>
+                        )}
                     </Link>
                   </li>
                 );

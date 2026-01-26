@@ -49,7 +49,7 @@ export default function DashboardPage() {
           .from("reminders")
           .select("*", { count: "exact", head: true })
           .eq("user_id", user.id)
-          .eq("is_active", true);
+          .eq("status", "active");
 
         setDashboardStats({
           subscriptionPlan: subscriptionData.plan?.name || "Free Plan",
@@ -97,7 +97,12 @@ export default function DashboardPage() {
         <div className="stat-card">
           <h3 className="stat-title">Subscription</h3>
           <p className="stat-number">{dashboardStats.subscriptionPlan}</p>
-          <button className="action-btn primary-btn">Upgrade</button>
+          <button
+            className="action-btn primary-btn"
+            onClick={() => router.push("/dashboard/billing")}
+          >
+            Upgrade
+          </button>
         </div>
 
         {/* Slack Connection Card */}
@@ -110,11 +115,7 @@ export default function DashboardPage() {
           </p>
           <button
             className="action-btn success-btn"
-            onClick={() =>
-              alert(
-                "Slack OAuth would start here. Need HTTPS for actual implementation.",
-              )
-            }
+            onClick={() => router.push("/dashboard/slack")}
           >
             {dashboardStats.slackConnected ? "Manage Slack" : "Connect Slack"}
           </button>
@@ -124,7 +125,12 @@ export default function DashboardPage() {
         <div className="stat-card">
           <h3 className="stat-title">Active Reminders</h3>
           <p className="stat-number">{dashboardStats.activeReminders}</p>
-          <button className="action-btn dark-btn">Create Reminder</button>
+          <button
+            className="action-btn dark-btn"
+            onClick={() => router.push("/dashboard/reminders")}
+          >
+            Create Reminder
+          </button>
         </div>
       </div>
 
