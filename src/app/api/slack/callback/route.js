@@ -47,22 +47,48 @@ export async function GET(request) {
     // Save to database
     const supabase = await createClient();
 
-    const { error: dbError } = await supabase.from("slack_connections").insert({
-      user_id: userId,
-      team_id: data.team.id,
-      team_name: data.team.name,
-      bot_token: Buffer.from(data.access_token).toString("base64"), // Simple encryption
-      bot_user_id: data.bot_user_id,
-      is_active: true,
-    });
+    // const { error: dbError } = await supabase.from("slack_connections").insert({
+    //   user_id: userId,
+    //   team_id: data.team.id,
+    //   team_name: data.team.name,
+    //   bot_token: Buffer.from(data.access_token).toString("base64"), // Simple encryption
+    //   bot_user_id: data.bot_user_id,
+    //   is_active: true,
+    // });
+
+    // if (dbError) {
+    //   console.error("Database error:", dbError);
+    //   return NextResponse.redirect(`${appUrl}/dashboard/slack?error=db_error`);
+    // }
+
+    // // Success!
+    // return NextResponse.redirect(`${appUrl}/dashboard/slack?success=true`);
+    // ... inside the try block ...
+
+    // 3. Save to Supabase
+    const { error: dbError } = await supabase.from("slack_connections").upsert(
+      {
+        user_id: user.id,
+        slack_user_id: authed_user.id,
+        team_id: team.id,
+        team_name: team.name,
+        access_token: access_token,
+        bot_token: access_token,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id, team_id" }, // This REQUIRES the SQL index from Step 1
+    );
 
     if (dbError) {
-      console.error("Database error:", dbError);
-      return NextResponse.redirect(`${appUrl}/dashboard/slack?error=db_error`);
-    }
+      // 👇 CRITICAL: Log this so you can see it in Vercel Dashboard -> Logs
+      console.error("FULL DATABASE ERROR:", JSON.stringify(dbError, null, 2));
 
-    // Success!
-    return NextResponse.redirect(`${appUrl}/dashboard/slack?success=true`);
+      // Pass the actual error message to the URL so you can read it on the frontend
+      return NextResponse.redirect(
+        `${requestUrl.origin}/dashboard/slack?error=db_error&details=${encodeURIComponent(dbError.message)}`,
+      );
+    }
   } catch (error) {
     console.error("Slack OAuth catch error:", error);
     return NextResponse.redirect(
