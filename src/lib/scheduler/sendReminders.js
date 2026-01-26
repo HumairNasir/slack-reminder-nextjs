@@ -14,7 +14,7 @@ export async function sendDueReminders() {
     const now = new Date();
 
     // 1. Find all ACTIVE reminders that are due
-    // We join with slack_connections to get the token
+    // We join with slack_connections to get the bot_token
     const { data: dueReminders, error: queryError } = await supabase
       .from("reminders")
       .select(
@@ -25,8 +25,8 @@ export async function sendDueReminders() {
         )
       `,
       )
-      .eq("status", "active") // Only pick up active ones
-      .lte("scheduled_for", now.toISOString()); // Due now or in the past
+      .eq("status", "active")
+      .lte("scheduled_for", now.toISOString());
 
     if (queryError) {
       console.error("Scheduler Query Error:", queryError);
@@ -46,7 +46,7 @@ export async function sendDueReminders() {
       try {
         console.log(`Processing reminder ${reminder.id}...`);
 
-        // STRICT: Only use bot_token as requested
+        // STRICT: Only use bot_token
         const botToken = reminder.slack_connections?.bot_token;
 
         if (!botToken) {
@@ -64,7 +64,7 @@ export async function sendDueReminders() {
         });
 
         if (result.ok) {
-          // B. SUCCESS: Update status to 'sent'
+          // B. SUCCESS: Update reminder status to 'sent' in main table
           await supabase
             .from("reminders")
             .update({
@@ -73,30 +73,35 @@ export async function sendDueReminders() {
             })
             .eq("id", reminder.id);
 
-          // Log success
-          await supabase.from("reminder_logs").insert({
-            reminder_id: reminder.id,
-            user_id: reminder.user_id,
-            channel_id: reminder.channel_id,
-            status: "sent",
-            slack_message_ts: result.ts,
-            sent_at: new Date().toISOString(),
-          });
+          // C. LOGGING (Success)
+          // Uses strictly the columns you provided: id, reminder_id, sent_at, status, slack_response
+          const { error: logError } = await supabase
+            .from("reminder_logs")
+            .insert({
+              reminder_id: reminder.id,
+              status: "success",
+              sent_at: new Date().toISOString(),
+              slack_response: result.ts,
+            });
 
-          // C. Handle Recurrence (Create the next one immediately)
+          if (logError) {
+            console.error("⚠️ Failed to save success log:", logError.message);
+          }
+
+          // D. Handle Recurrence (Create the next one immediately)
           if (reminder.recurrence && reminder.recurrence !== "once") {
             await handleNextOccurrence(supabase, reminder);
           }
 
           totalSent++;
-          results.push({ id: reminder.id, status: "sent" });
+          results.push({ id: reminder.id, status: "success" });
         } else {
           throw new Error(`Slack API error: ${result.error}`);
         }
       } catch (error) {
         console.error(`Failed to send reminder ${reminder.id}:`, error.message);
 
-        // D. FAILURE: Mark as 'failed' so we don't retry forever
+        // E. FAILURE: Mark main reminder as 'failed'
         await supabase
           .from("reminders")
           .update({
@@ -105,15 +110,20 @@ export async function sendDueReminders() {
           })
           .eq("id", reminder.id);
 
-        // Log failure
-        await supabase.from("reminder_logs").insert({
-          reminder_id: reminder.id,
-          user_id: reminder.user_id,
-          channel_id: reminder.channel_id,
-          status: "failed",
-          error_message: error.message,
-          sent_at: new Date().toISOString(),
-        });
+        // F. LOGGING (Failure)
+        // Uses strictly the columns you provided: id, reminder_id, sent_at, status, error_message
+        const { error: logError } = await supabase
+          .from("reminder_logs")
+          .insert({
+            reminder_id: reminder.id,
+            status: "failed",
+            sent_at: new Date().toISOString(),
+            error_message: error.message,
+          });
+
+        if (logError) {
+          console.error("⚠️ Failed to save failure log:", logError.message);
+        }
 
         totalFailed++;
         results.push({
@@ -122,7 +132,7 @@ export async function sendDueReminders() {
           error: error.message,
         });
 
-        // LOOP CONTINUES -> This failure does NOT stop the next reminder!
+        // LOOP CONTINUES -> One failure does NOT stop the next reminder
       }
     }
 
