@@ -157,11 +157,10 @@ export async function GET(request) {
     // ---------------------------------------------------------
     const { error: dbError } = await supabase.from("slack_connections").upsert(
       {
-        user_id: user.id, // <--- This is where it was likely failing before
+        user_id: user.id,
         slack_user_id: authed_user.id,
         team_id: team.id,
         team_name: team.name,
-        access_token: access_token,
         bot_token: access_token,
         is_active: true,
         updated_at: new Date().toISOString(),
