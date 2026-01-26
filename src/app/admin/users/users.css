@@ -1,0 +1,72 @@
+/* admin/users/users.css */
+
+.users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.users-page-title {
+  margin-bottom: 0 !important;
+}
+
+.search-wrapper {
+  position: relative;
+}
+
+.search-icon-custom {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+
+.search-input-custom {
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  width: 280px;
+  outline: none;
+  font-size: 0.9rem;
+}
+
+.users-card {
+  padding: 0 !important; /* Override default card padding if necessary */
+  overflow: hidden;
+}
+
+.loading-container {
+  padding: 3rem;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  color: #6b7280;
+}
+
+.loader-icon-custom {
+  margin-bottom: 1rem;
+  color: #4f46e5;
+}
+
+.email-text {
+  font-weight: 500;
+  color: #111827;
+}
+
+.status-active-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.empty-state-cell {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+}

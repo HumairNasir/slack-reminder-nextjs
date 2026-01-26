@@ -1,0 +1,93 @@
+/* admin/logs/logs.css */
+
+.logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.logs-page-title {
+  margin-bottom: 0 !important;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-tab {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background-color: white;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.filter-tab:hover {
+  background-color: #f9fafb;
+}
+
+.filter-tab.active {
+  border-color: #4f46e5;
+  background-color: #eff6ff;
+  color: #4f46e5;
+}
+
+.logs-card {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.loading-container {
+  padding: 3rem;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  color: #6b7280;
+}
+
+.loader-icon {
+  margin-bottom: 1rem;
+  color: #4f46e5;
+}
+
+.time-cell {
+  white-space: nowrap;
+  color: #6b7280;
+}
+
+.status-badge-flex {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.user-text {
+  font-weight: 500;
+}
+
+.deleted-text {
+  font-style: italic;
+  color: #9ca3af;
+}
+
+.details-cell {
+  max-width: 300px;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.details-cell.error-text {
+  color: #ef4444;
+}
+
+.empty-state-cell {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+}

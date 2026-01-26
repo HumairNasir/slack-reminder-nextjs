@@ -1,9 +1,10 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client"; // Your path
+import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
-import { Search, Loader2, CheckCircle, XCircle } from "lucide-react";
-import "../admin.css"; // Reusing the admin CSS
+import { Search, Loader2, CheckCircle } from "lucide-react";
+import "../admin.css"; // Global admin styles
+import "./users.css"; // New external styles
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -17,8 +18,6 @@ export default function UserManagement() {
 
   async function fetchUsers() {
     setLoading(true);
-    // Fetch users and their subscription status
-    // Note: We join with the subscriptions table to get the status
     const { data, error } = await supabase
       .from("users")
       .select(
@@ -40,38 +39,37 @@ export default function UserManagement() {
     setLoading(false);
   }
 
-  // Filter users based on search
   const filteredUsers = users.filter((user) =>
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">User Management</h1>
-
-        {/* Search Bar */}
-        <div className="search-container">
-          <Search size={20} className="search-icon" />
+      {/* Header with Search */}
+      <div className="users-header">
+        <h1 className="page-title users-page-title">User Management</h1>
+        <div className="search-wrapper">
+          <Search size={18} className="search-icon-custom" />
           <input
             type="text"
             placeholder="Search by email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
+            className="search-input-custom"
           />
         </div>
       </div>
 
-      <div className="section-container">
+      {/* Main Content Card */}
+      <div className="card users-card">
         {loading ? (
-          <div className="loading-state">
-            <Loader2 className="animate-spin" size={32} />
+          <div className="loading-container">
+            <Loader2 className="animate-spin loader-icon-custom" size={32} />
             <p>Loading users...</p>
           </div>
         ) : (
           <div className="table-wrapper">
-            <table className="admin-table">
+            <table className="styled-table">
               <thead>
                 <tr>
                   <th>Email</th>
@@ -82,43 +80,38 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => {
-                  // Get subscription status safely
-                  const subStatus = user.subscriptions?.[0]?.status || "free";
-                  const isActive = subStatus === "active";
-
-                  return (
-                    <tr key={user.id}>
-                      <td className="font-medium">{user.email}</td>
-                      <td>{new Date(user.created_at).toLocaleDateString()}</td>
-                      <td>
-                        <span
-                          className={`badge ${isActive ? "badge-success" : "badge-warning"}`}
-                        >
-                          {subStatus.toUpperCase()}
-                        </span>
-                      </td>
-                      <td>
-                        {
-                          /* You might need to fetch role separately if not in user meta */ "User"
-                        }
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          {/* Simple visual indicator for now */}
-                          <CheckCircle size={16} color="green" /> Active
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {filteredUsers.length === 0 && (
+                {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="empty-state">
+                    <td colSpan="5" className="empty-state-cell">
                       No users found matching "{searchTerm}"
                     </td>
                   </tr>
+                ) : (
+                  filteredUsers.map((user) => {
+                    const subStatus = user.subscriptions?.[0]?.status || "free";
+                    const isActive = subStatus === "active";
+                    return (
+                      <tr key={user.id}>
+                        <td className="email-text">{user.email}</td>
+                        <td>
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${isActive ? "active" : "free"}`}
+                          >
+                            {subStatus.toUpperCase()}
+                          </span>
+                        </td>
+                        <td>User</td>
+                        <td>
+                          <span className="status-active-text">
+                            <CheckCircle size={16} /> Active
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

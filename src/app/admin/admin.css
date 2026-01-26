@@ -1,224 +1,222 @@
-.admin-container {
+/* admin/admin.css */
+
+:root {
+  --bg-body: #f3f4f6;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+}
+
+/* 1. LOCK THE BODY SCROLL (Keeps layout stable) */
+body {
+  background-color: var(--bg-body);
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* 2. LAYOUT STRUCTURE */
+.app-container {
   display: flex;
   min-height: 100vh;
-  background-color: #f8f9fa;
-}
-
-/* Sidebar Styling */
-.admin-sidebar {
-  width: 250px;
-  background-color: #1a1a1a;
-  color: white;
-  display: flex;
   flex-direction: column;
+  padding-top: 4rem; /* Push content down for fixed header */
 }
 
-.sidebar-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid #333;
+/* 3. FIXED HEADER */
+.header {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 50;
 }
 
-.logo-area {
+.main-wrapper {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  position: relative;
+}
+
+/* 4. MAIN CONTENT AREA */
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  width: 100%;
+  margin-left: 0;
+  transition: margin-left 0.3s ease-in-out;
+}
+
+/* Desktop: Push content right to accommodate fixed sidebar */
+@media (min-width: 769px) {
+  .main-content {
+    margin-left: 16rem;
+    max-width: calc(100vw - 16rem);
+  }
+}
+
+/* --- DASHBOARD WIDGET STYLES (These were missing!) --- */
+
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: var(--text-main);
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #ff6b6b; /* Red accent color */
-  font-weight: bold;
-  font-size: 1.2rem;
-}
-
-.sidebar-nav {
-  flex: 1;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
   gap: 0.5rem;
 }
 
-.nav-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  color: #ccc;
-  text-decoration: none;
-  border-radius: 8px;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
+/* Stats Grid Layout */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
 }
 
-.nav-link:hover {
-  background-color: #333;
-  color: white;
-}
-
-.sidebar-footer {
-  padding: 1rem;
-  border-top: 1px solid #333;
-}
-
-.back-link {
-  color: #888;
-}
-
-.back-link:hover {
-  color: white;
-}
-
-/* Main Content Styling */
-.admin-main {
-  flex: 1;
-  overflow-y: auto;
-  height: 100vh;
-}
-
-.content-wrapper {
-  padding: 2rem;
-}
-
-/* --- User Management Styles --- */
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-/* Search Input */
-.search-container {
-  position: relative;
-  width: 300px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #888;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px 10px 10px 40px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.search-input:focus {
-  border-color: #333;
-}
-
-/* Badges */
-.badge {
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.badge-success {
-  background-color: #e8f5e9;
-  color: #2e7d32;
-}
-
-.badge-warning {
-  background-color: #fff3e0;
-  color: #ef6c00;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem;
-  color: #666;
-  gap: 10px;
-}
-
-.font-medium {
-  font-weight: 500;
-  color: #333;
-}
-
-/* --- Logs Page Styles --- */
-
-.filter-btn {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
+/* Individual Stat Card */
+.stat-card {
   background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-  color: #666;
-}
-
-.filter-btn:hover {
-  background: #f1f1f1;
-}
-
-.filter-btn.active {
-  background: #333;
-  color: white;
-  border-color: #333;
-}
-
-.status-flex {
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 1.25rem;
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Icons */
+.stat-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.user-icon {
+  background-color: #eff6ff;
+  color: #3b82f6;
+}
+.sub-icon {
+  background-color: #ecfdf5;
+  color: #10b981;
+}
+.bell-icon {
+  background-color: #fff7ed;
+  color: #f97316;
+}
+
+/* Stat Text */
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
-.status-flex.success {
-  color: #2e7d32;
-}
-.status-flex.error {
-  color: #d32f2f;
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
 }
 
-.log-message {
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: #555;
-  max-width: 300px;
+/* --- COMMON CARD & TABLE STYLES --- */
+.card {
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
+/* Table Scrolling Fix */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.styled-table th,
+.styled-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  color: var(--text-main);
+}
+
+.styled-table th {
+  background: #f9fafb;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  text-align: left;
+}
+
+/* Utilities */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge.active {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge.free {
+  background: #f3f4f6;
+  color: #374151;
+}
+.badge.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.error-text {
+  color: #ef4444;
+  font-weight: 500;
+}
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-muted);
+}
 .loading-state {
+  padding: 3rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100vh;
-  gap: 1rem;
-}
-
-.loader {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+  color: var(--text-muted);
 }
