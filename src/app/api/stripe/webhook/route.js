@@ -70,17 +70,22 @@ async function upsertSubscription(subscription, supabase) {
   }
 
   // 5. UPSERT (Create or Update the new one)
-  const { error } = await supabase.from("subscriptions").upsert({
-    user_id: userId,
-    stripe_subscription_id: subscription.id,
-    stripe_customer_id: subscription.customer,
-    plan_id: planId,
-    status: subscription.status,
-    current_period_start: startDate,
-    current_period_end: endDate,
-    cancel_at_period_end: subscription.cancel_at_period_end || false,
-    updated_at: new Date(),
-  });
+  await supabase.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      stripe_subscription_id: subscription.id,
+      stripe_customer_id: subscription.customer,
+      plan_id: planId,
+      status: subscription.status,
+      current_period_start: startDate,
+      current_period_end: endDate,
+      cancel_at_period_end: subscription.cancel_at_period_end || false,
+      updated_at: new Date(),
+    },
+    {
+      onConflict: "stripe_subscription_id",
+    },
+  );
 
   if (error) {
     console.error("Database Upsert Error:", error.message);
