@@ -17,6 +17,7 @@ export default function DashboardPage() {
     subscriptionPlan: "Loading...",
     slackConnected: false,
     activeReminders: 0,
+    limits: null,
   });
 
   // Redirect if not logged in
@@ -34,7 +35,6 @@ export default function DashboardPage() {
       try {
         // Get subscription data
         const subscriptionData = await checkUserLimits(user.id);
-        // console.log("Subscription data:", subscriptionData);
 
         // Get Slack connection status
         const supabase = createClient();
@@ -55,6 +55,7 @@ export default function DashboardPage() {
           subscriptionPlan: subscriptionData.plan?.name || "Free Plan",
           slackConnected: (connectionsCount || 0) > 0,
           activeReminders: remindersCount || 0,
+          limits: subscriptionData.limits,
         });
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
@@ -92,6 +93,11 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {/* ✅✅✅ FIXED: ADDED THE WARNING COMPONENT HERE ✅✅✅ */}
+      {dashboardStats.limits && (
+        <UsageWarnings limits={dashboardStats.limits} router={router} />
+      )}
+
       <div className="stats-grid">
         {/* Subscription Card */}
         <div className="stat-card">
@@ -125,6 +131,18 @@ export default function DashboardPage() {
         <div className="stat-card">
           <h3 className="stat-title">Active Reminders</h3>
           <p className="stat-number">{dashboardStats.activeReminders}</p>
+          {/* Optional: Add text showing exactly how many used */}
+          <div
+            className="limit-info"
+            style={{ marginBottom: "10px", color: "#666" }}
+          >
+            {dashboardStats.limits && (
+              <small>
+                {dashboardStats.limits.currentReminders} /{" "}
+                {dashboardStats.limits.maxReminders} used
+              </small>
+            )}
+          </div>
           <button
             className="action-btn dark-btn"
             onClick={() => router.push("/dashboard/reminders/create")}
@@ -138,14 +156,6 @@ export default function DashboardPage() {
       <div className="actions-section">
         <h2 className="section-title">Quick Actions</h2>
         <div className="actions-grid">
-          {/* <button className="action-item">
-            <div className="action-icon">📅</div>
-            <p className="action-text">Schedule Reminder</p>
-          </button>
-          <button className="action-item">
-            <div className="action-icon">🔄</div>
-            <p className="action-text">View Logs</p>
-          </button> */}
           <button
             className="action-item"
             onClick={() => router.push("/dashboard/settings")}
@@ -164,4 +174,59 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+}
+
+// --- HELPER COMPONENT ---
+function UsageWarnings({ limits, router }) {
+  if (!limits) return null;
+
+  // 1. Force convert to numbers to prevent string math errors
+  const max = Number(limits.maxReminders);
+  const current = Number(limits.currentReminders);
+
+  // 2. Safety check
+  if (!max || max === 0) return null;
+
+  // 3. Calculate Percentage
+  const usagePercent = (current / max) * 100;
+
+  console.log("DEBUG WARNINGS:", { max, current, usagePercent });
+
+  // Case 1: Over Limit or 100% Used (Red)
+  if (usagePercent >= 100) {
+    return (
+      <div className="warning-banner critical">
+        <div className="warning-content">
+          <strong>⚠️ Limit Reached:</strong> You have used {current} of {max}{" "}
+          reminders. Please upgrade to add more.
+        </div>
+        <button
+          className="warning-btn"
+          onClick={() => router.push("/dashboard/billing")}
+        >
+          Upgrade
+        </button>
+      </div>
+    );
+  }
+
+  // Case 2: Approaching Limit - 80% or more (Yellow)
+  if (usagePercent >= 80) {
+    return (
+      <div className="warning-banner warning">
+        <div className="warning-content">
+          <strong>Usage Alert:</strong> You have used {Math.floor(usagePercent)}
+          % of your reminder limit ({current}/{max}).
+        </div>
+        <button
+          className="warning-btn"
+          onClick={() => router.push("/dashboard/billing")}
+        >
+          Upgrade Now
+        </button>
+      </div>
+    );
+  }
+
+  return null;
 }

@@ -214,3 +214,50 @@
 .status-indicator.green {
   background-color: #059669;
 }
+
+/* --- Usage Warning Banners --- */
+.warning-banner {
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.warning-banner.critical {
+  background-color: #fee2e2; /* Light Red background */
+  border: 1px solid #f87171;
+  color: #991b1b; /* Dark Red text */
+}
+
+.warning-banner.warning {
+  background-color: #fef3c7; /* Light Yellow background */
+  border: 1px solid #fbbf24;
+  color: #92400e; /* Dark Orange/Brown text */
+}
+
+.warning-content strong {
+  margin-right: 0.5rem;
+}
+
+.warning-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+}
+
+.warning-banner.critical .warning-btn {
+  background-color: #dc2626;
+  color: white;
+}
+
+.warning-banner.warning .warning-btn {
+  background-color: #d97706;
+  color: white;
+}

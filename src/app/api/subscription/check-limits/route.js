@@ -2,43 +2,29 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export async function GET(request) {
-  // console.log("=== API ROUTE CALLED: /api/subscription/check-limits ===");
-
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
-    // console.log("Requested userId:", userId);
-
     if (!userId) {
-      // console.log("No userId provided");
       return NextResponse.json(
         { success: false, error: "User ID required" },
         { status: 400 },
       );
     }
 
-    // Use service role client to bypass RLS
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // console.log("Service role client created");
-
-    // Get user's subscription
-    // console.log("Querying subscriptions for user:", userId);
-    const { data: subscription, error: subError } = await supabase
+    // 1. Get Subscription & Dates
+    const { data: subscription } = await supabase
       .from("subscriptions")
-      .select("status, plan_id")
+      .select("status, plan_id, current_period_start, current_period_end")
       .eq("user_id", userId)
-      .in("status", ["active", "trialing"])
+      .in("status", ["active", "trialing", "past_due"])
       .single();
-
-    // console.log("Subscription query result:", {
-    //   data: subscription,
-    //   error: subError,
-    // });
 
     let plan = null;
     let limits = {
@@ -51,7 +37,6 @@ export async function GET(request) {
     };
 
     if (subscription) {
-      // Get plan details
       const { data: planData } = await supabase
         .from("subscription_plans")
         .select("*")
@@ -61,7 +46,7 @@ export async function GET(request) {
       if (planData) {
         plan = planData;
 
-        // Count current channels
+        // 2. Count Channels
         const { data: connection } = await supabase
           .from("slack_connections")
           .select("id")
@@ -78,12 +63,15 @@ export async function GET(request) {
           currentChannels = count || 0;
         }
 
-        // Count current reminders
+        // 3. Count Reminders (The Logic Update)
+        // Rule: Count (Active + Sent) inside current period. Ignore Failed.
         const { count: currentReminders } = await supabase
           .from("reminders")
           .select("*", { count: "exact", head: true })
           .eq("user_id", userId)
-          .eq("status", "active");
+          .gte("created_at", subscription.current_period_start)
+          .lte("created_at", subscription.current_period_end)
+          .neq("status", "failed"); // 👈 EXCLUDE FAILED
 
         limits = {
           maxChannels: planData.max_channels,
@@ -97,17 +85,14 @@ export async function GET(request) {
     }
 
     const result = {
-      allowed: !!subscription && subscription.status === "active",
+      allowed:
+        !!subscription &&
+        ["active", "trialing", "past_due"].includes(subscription.status),
       plan: plan,
       limits: limits,
     };
 
-    // console.log("API returning result:", result);
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error("API error:", error);
     return NextResponse.json(

@@ -1,49 +1,33 @@
 // Client-side function that calls the API route with user ID
 export async function checkUserLimits(userId) {
-  // console.log("=== checkUserLimits START ===");
-  // console.log("Input userId:", userId);
-
   try {
-    console.log(
-      "Making API call to /api/subscription/check-limits with userId:",
-      userId,
-    );
-
     // Call the API route with user ID as query parameter
+    // ADDED: cache: "no-store" to ensure we get fresh data after deletions
     const response = await fetch(
       `/api/subscription/check-limits?userId=${userId}`,
       {
         method: "GET",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
         },
       },
     );
 
-    // console.log("API response status:", response.status);
-    // console.log("API response ok:", response.ok);
-
-    let result;
-    try {
-      result = await response.json();
-      // console.log("API response data:", result);
-    } catch (parseError) {
-      console.error("Failed to parse JSON response:", parseError);
-      throw new Error("Invalid JSON response from API");
-    }
-
     if (!response.ok) {
-      console.error("API error:", result.error);
-      throw new Error(`API error: ${result.error || "Unknown error"}`);
+      throw new Error("Failed to fetch limits");
     }
 
-    // console.log("=== checkUserLimits END ===");
-    // console.log("Final result:", result.data);
+    const result = await response.json();
 
-    return result.data;
+    if (result.success) {
+      return result.data;
+    }
+
+    throw new Error(result.error || "Unknown API error");
   } catch (error) {
     console.error("checkUserLimits error:", error);
-    console.error("Error details:", error.message);
+    // Return safe default so UI doesn't crash
     return {
       allowed: false,
       plan: null,

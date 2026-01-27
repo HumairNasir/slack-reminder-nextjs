@@ -25,62 +25,56 @@ export default function RemindersPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    async function loadData() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      // 1. Load limits
-      const limitsData = await checkUserLimits(user.id);
-      setLimits(limitsData);
-      setCanCreate(limitsData.allowed && limitsData.limits?.canAddReminder);
-
-      // 2. Load reminders
-      await loadReminders(user.id);
-
-      // 3. Load Connections (For the Edit Modal Dropdown)
-      const { data: connData } = await supabase
-        .from("slack_connections")
-        .select("id, team_name")
-        .eq("user_id", user.id)
-        .eq("is_active", true);
-      setConnections(connData || []);
-
-      setLoading(false);
-    }
     loadData();
   }, []);
+
+  async function loadData() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    // 1. Load limits
+    const limitsData = await checkUserLimits(user.id);
+    setLimits(limitsData);
+    setCanCreate(limitsData.allowed && limitsData.limits?.canAddReminder);
+
+    // 2. Load reminders
+    await loadReminders(user.id);
+
+    // 3. Load Connections
+    const { data: connData } = await supabase
+      .from("slack_connections")
+      .select("id, team_name")
+      .eq("user_id", user.id)
+      .eq("is_active", true);
+    setConnections(connData || []);
+
+    setLoading(false);
+  }
 
   // Refresh reminders when page becomes visible
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      if (!document.hidden) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) await loadReminders(user.id);
-      }
+      if (!document.hidden) loadData(); // Reload everything to update limits
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
-  // Fetch Channels when Workspace changes in Modal
+  // Fetch Channels for Modal
   useEffect(() => {
     async function fetchChannels() {
       if (!editForm.connection_id || !isEditModalOpen) return;
-
       setChannelsLoading(true);
       const { data } = await supabase
         .from("slack_channels")
         .select("*")
         .eq("connection_id", editForm.connection_id);
-
       setChannels(data || []);
       setChannelsLoading(false);
     }
@@ -117,12 +111,9 @@ export default function RemindersPage() {
     window.location.href = "/dashboard/reminders/create";
   };
 
-  // --- EDIT MODAL ACTIONS ---
-
   const openEditModal = (reminder) => {
-    // Convert UTC DB time to Local Time for input
-    // const date = new Date(reminder.scheduled_for);
-    const date = new Date(); //Show Actual Time
+    const date = new Date(reminder.scheduled_for);
+    // Format for datetime-local input
     const localIsoString = new Date(
       date.getTime() - date.getTimezoneOffset() * 60000,
     )
@@ -137,7 +128,7 @@ export default function RemindersPage() {
       scheduled_for: localIsoString,
       connection_id: reminder.connection_id,
       channel_id: reminder.channel_id,
-      originalStatus: reminder.status, // Logic: Sent vs Active
+      originalStatus: reminder.status,
     });
 
     setIsEditModalOpen(true);
@@ -157,10 +148,7 @@ export default function RemindersPage() {
         return;
       }
 
-      // Convert Local Input back to UTC
       const utcDate = new Date(editForm.scheduled_for).toISOString();
-
-      // Find Channel Name for display
       const selectedChannel = channels.find(
         (c) => c.channel_id === editForm.channel_id,
       );
@@ -179,16 +167,10 @@ export default function RemindersPage() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
 
-      // LOGIC: If 'sent' -> Create New. If 'active' -> Update Existing.
-      if (editForm.originalStatus === "sent") {
-        const { error } = await supabase.from("reminders").insert({
-          ...payload,
-          user_id: user.id,
-          status: "active", // New reminder starts as active
-        });
-        if (error) throw error;
-        alert("New reminder created from history!");
-      } else {
+      // 🛑 LOGIC FIX:
+      // 1. If 'sent' or 'failed', we create a NEW one (history preserved).
+      // 2. If 'active', we UPDATE the existing one (same ID, no count increase).
+      if (editForm.originalStatus === "active") {
         const { error } = await supabase
           .from("reminders")
           .update({
@@ -197,10 +179,21 @@ export default function RemindersPage() {
           })
           .eq("id", editForm.id);
         if (error) throw error;
+        alert("Reminder updated successfully!");
+      } else {
+        // Status is 'sent' or 'failed' -> Reschedule as NEW
+        // This counts as a new usage for the current month
+        const { error } = await supabase.from("reminders").insert({
+          ...payload,
+          user_id: user.id,
+          status: "active",
+        });
+        if (error) throw error;
+        alert("Reminder rescheduled (created new)!");
       }
 
       setIsEditModalOpen(false);
-      await loadReminders(user.id);
+      await loadData(); // Reload limits and reminders
     } catch (error) {
       console.error("Update failed:", error);
       alert("Failed to update reminder.");
@@ -214,12 +207,9 @@ export default function RemindersPage() {
     try {
       const { error } = await supabase.from("reminders").delete().eq("id", id);
       if (error) throw error;
-      setReminders((prev) => prev.filter((r) => r.id !== id));
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) loadReminders(user.id);
+      // Reload data to reflect new count (deleted items give credit back)
+      loadData();
     } catch (error) {
       console.error("Delete failed:", error);
     }
@@ -231,15 +221,15 @@ export default function RemindersPage() {
     <div>
       <h1 className="page-title">Reminders</h1>
 
-      {/* --- EDIT MODAL (Inserted Here) --- */}
+      {/* --- EDIT MODAL --- */}
       {isEditModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
               <h2>
-                {editForm.originalStatus === "sent"
-                  ? "Reschedule (Creates New)"
-                  : "Edit Reminder"}
+                {editForm.originalStatus === "active"
+                  ? "Edit Reminder"
+                  : "Reschedule Reminder"}
               </h2>
               <button
                 className="close-btn"
@@ -359,19 +349,18 @@ export default function RemindersPage() {
               >
                 {updating ? (
                   <Loader2 className="animate-spin" size={18} />
-                ) : editForm.originalStatus === "sent" ? (
-                  "Create New"
-                ) : (
+                ) : editForm.originalStatus === "active" ? (
                   "Save Changes"
+                ) : (
+                  "Create New"
                 )}
               </button>
             </div>
           </div>
         </div>
       )}
-      {/* --- END MODAL --- */}
 
-      {/* --- YOUR ORIGINAL STATS SECTION --- */}
+      {/* --- STATS SECTION --- */}
       {limits && (
         <div className="plan-status">
           <h3>Subscription Status</h3>
@@ -386,7 +375,12 @@ export default function RemindersPage() {
                 <div
                   className="progress-fill"
                   style={{
-                    width: `${(limits.limits.currentReminders / limits.limits.maxReminders) * 100}%`,
+                    width: `${Math.min(
+                      (limits.limits.currentReminders /
+                        limits.limits.maxReminders) *
+                        100,
+                      100,
+                    )}%`,
                     backgroundColor: limits.limits.canAddReminder
                       ? "green"
                       : "red",
@@ -412,12 +406,7 @@ export default function RemindersPage() {
         <div className="reminders-header">
           <h3>Your Reminders</h3>
           <button
-            onClick={async () => {
-              const {
-                data: { user },
-              } = await supabase.auth.getUser();
-              if (user) await loadReminders(user.id);
-            }}
+            onClick={() => loadData()}
             className="refresh-btn"
             disabled={remindersLoading}
           >
@@ -465,19 +454,18 @@ export default function RemindersPage() {
                 <div className="reminder-actions">
                   <button
                     className="edit-btn"
-                    onClick={() => openEditModal(reminder)} // Opens Modal
+                    onClick={() => openEditModal(reminder)}
                   >
-                    Edit
+                    {reminder.status === "active" ? "Edit" : "Reschedule"}
                   </button>
 
-                  {reminder.status !== "sent" && (
-                    <button
-                      className="delete-btn"
-                      onClick={() => handleDelete(reminder.id)}
-                    >
-                      Delete
-                    </button>
-                  )}
+                  {/* ALLOW DELETING FAILED REMINDERS TOO (To clean up list) */}
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDelete(reminder.id)}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}

@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { checkUserLimits } from "@/lib/subscription/checkLimits";
 
 export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Get current user
     const {
       data: { user },
       error: authError,
@@ -14,12 +12,11 @@ export async function POST(request) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized - Please login" },
+        { success: false, error: "Unauthorized" },
         { status: 401 },
       );
     }
 
-    // 2. Parse request body
     const {
       title,
       message,
@@ -30,7 +27,6 @@ export async function POST(request) {
       timezone,
     } = await request.json();
 
-    // 3. Validate required fields
     if (!title || !message || !connectionId || !channelId || !scheduledFor) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
@@ -38,17 +34,49 @@ export async function POST(request) {
       );
     }
 
-    // 4. Check user limits (temporarily disabled for testing)
-    // const limits = await checkUserLimits(user.id);
-    // if (!limits.allowed || !limits.limits.canAddReminder) {
-    //   return NextResponse.json(
-    //     { success: false, error: "Subscription limit reached or inactive" },
-    //     { status: 403 },
-    //   );
-    // }
+    // --- LIMIT CHECK START ---
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("plan_id, status, current_period_start, current_period_end")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing", "past_due"])
+      .single();
 
-    // 5. Verify the Slack connection belongs to the user
-    const { data: connection, error: connectionError } = await supabase
+    if (!subscription) {
+      return NextResponse.json(
+        { success: false, error: "No active subscription found." },
+        { status: 403 },
+      );
+    }
+
+    const { data: plan } = await supabase
+      .from("subscription_plans")
+      .select("max_reminders")
+      .eq("id", subscription.plan_id)
+      .single();
+
+    // Count usage (excluding failed)
+    const { count: monthlyUsage } = await supabase
+      .from("reminders")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", subscription.current_period_start)
+      .lte("created_at", subscription.current_period_end)
+      .neq("status", "failed"); // 👈 EXCLUDE FAILED
+
+    if ((monthlyUsage || 0) >= plan.max_reminders) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Monthly limit reached (${monthlyUsage}/${plan.max_reminders}). Delete active reminders or upgrade.`,
+        },
+        { status: 403 },
+      );
+    }
+    // --- LIMIT CHECK END ---
+
+    // Verification Logic (Connection/Channel/Time) ...
+    const { data: connection } = await supabase
       .from("slack_connections")
       .select("id, team_name")
       .eq("id", connectionId)
@@ -56,29 +84,20 @@ export async function POST(request) {
       .eq("is_active", true)
       .single();
 
-    if (connectionError || !connection) {
+    if (!connection) {
       return NextResponse.json(
-        { success: false, error: "Invalid or unauthorized Slack connection" },
+        { success: false, error: "Invalid Slack connection" },
         { status: 403 },
       );
     }
 
-    // 6. Verify the channel exists for this connection
-    const { data: channel, error: channelError } = await supabase
+    const { data: channel } = await supabase
       .from("slack_channels")
       .select("channel_name")
       .eq("connection_id", connectionId)
       .eq("channel_id", channelId)
       .single();
 
-    if (channelError || !channel) {
-      return NextResponse.json(
-        { success: false, error: "Invalid channel for this connection" },
-        { status: 400 },
-      );
-    }
-
-    // 7. Validate scheduled time is in the future
     const scheduledTime = new Date(scheduledFor);
     if (scheduledTime <= new Date()) {
       return NextResponse.json(
@@ -87,35 +106,26 @@ export async function POST(request) {
       );
     }
 
-    // 8. Create the reminder
-    const reminderData = {
-      user_id: user.id,
-      title: title.trim(),
-      message: message.trim(),
-      connection_id: connectionId,
-      channel_id: channelId,
-      channel_name: channel.channel_name,
-      scheduled_for: scheduledTime.toISOString(),
-      recurrence: recurrence || "once",
-      timezone: timezone || "UTC",
-      status: "active",
-    };
-
+    // Insert Reminder
     const { data: reminder, error: insertError } = await supabase
       .from("reminders")
-      .insert(reminderData)
+      .insert({
+        user_id: user.id,
+        title: title.trim(),
+        message: message.trim(),
+        connection_id: connectionId,
+        channel_id: channelId,
+        channel_name: channel?.channel_name || "unknown",
+        scheduled_for: scheduledTime.toISOString(),
+        recurrence: recurrence || "once",
+        timezone: timezone || "UTC",
+        status: "active",
+      })
       .select()
       .single();
 
-    if (insertError) {
-      console.error("Database insert error:", insertError);
-      return NextResponse.json(
-        { success: false, error: "Failed to save reminder" },
-        { status: 500 },
-      );
-    }
+    if (insertError) throw insertError;
 
-    // 9. Return success
     return NextResponse.json({
       success: true,
       reminder: reminder,
@@ -124,7 +134,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("API error:", error);
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      { success: false, error: error.message },
       { status: 500 },
     );
   }
