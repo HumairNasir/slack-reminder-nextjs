@@ -1,3 +1,151 @@
+// import { NextResponse } from "next/server";
+// import { stripe } from "@/lib/stripe/client";
+// import { createClient } from "@supabase/supabase-js";
+
+// export async function POST(request) {
+//   // console.log("=== CHECKOUT API CALLED ===");
+
+//   try {
+//     const body = await request.json();
+//     // console.log("Request body:", body);
+
+//     const { priceId } = body;
+
+//     if (!priceId) {
+//       // console.error("No priceId provided");
+//       return NextResponse.json(
+//         { error: "Price ID is required" },
+//         { status: 400 },
+//       );
+//     }
+
+//     // Create Supabase client
+//     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+//     const supabaseKey =
+//       process.env.SUPABASE_SERVICE_ROLE_KEY ||
+//       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+//     const supabase = createClient(supabaseUrl, supabaseKey);
+
+//     // Get auth header
+//     const authHeader = request.headers.get("authorization");
+
+//     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+//       console.error("No Bearer token in headers");
+//       return NextResponse.json(
+//         { error: "No authentication token provided" },
+//         { status: 401 },
+//       );
+//     }
+
+//     const token = authHeader.split("Bearer ")[1];
+
+//     // Get user from token
+//     const {
+//       data: { user },
+//       error: authError,
+//     } = await supabase.auth.getUser(token);
+
+//     if (authError) {
+//       console.error("Auth error:", authError);
+//       return NextResponse.json(
+//         { error: "Authentication failed: " + authError.message },
+//         { status: 401 },
+//       );
+//     }
+
+//     if (!user) {
+//       return NextResponse.json({ error: "User not found" }, { status: 401 });
+//     }
+
+//     // Check Stripe client
+
+//     if (!stripe) {
+//       throw new Error("Stripe client not initialized");
+//     }
+
+//     // Check existing subscription
+//     const { data: existingSubscription, error: subError } = await supabase
+//       .from("subscriptions")
+//       .select("stripe_customer_id, status")
+//       .eq("user_id", user.id)
+//       .in("status", ["active", "trialing", "past_due"])
+//       .single();
+
+//     if (subError && subError.code !== "PGRST116") {
+//       console.error("Subscription query error:", subError);
+//     }
+
+//     // Create or retrieve Stripe customer
+//     let customerId = existingSubscription?.stripe_customer_id;
+
+//     if (!customerId) {
+//       const customer = await stripe.customers.create({
+//         email: user.email,
+//         name: user.user_metadata?.full_name || user.email,
+//         metadata: {
+//           userId: user.id,
+//           supabaseUserId: user.id,
+//         },
+//       });
+//       customerId = customer.id;
+//     } else {
+//     }
+
+//     // Create checkout session
+//     const session = await stripe.checkout.sessions.create({
+//       customer: customerId,
+//       line_items: [
+//         {
+//           price: priceId,
+//           quantity: 1,
+//         },
+//       ],
+//       mode: "subscription",
+//       payment_method_types: ["card"],
+//       success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
+//       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard/billing?canceled=true`,
+//       metadata: {
+//         userId: user.id,
+//         userEmail: user.email,
+//         supabaseUserId: user.id,
+//       },
+//       allow_promotion_codes: true,
+//       billing_address_collection: "required",
+//       subscription_data: {
+//         metadata: {
+//           userId: user.id,
+//           supabaseUserId: user.id,
+//         },
+//       },
+//     });
+
+//     return NextResponse.json({
+//       success: true,
+//       url: session.url,
+//       sessionId: session.id,
+//     });
+//   } catch (error) {
+//     console.error("=== CHECKOUT API ERROR ===");
+//     console.error("Error name:", error.name);
+//     console.error("Error message:", error.message);
+//     console.error("Error stack:", error.stack);
+
+//     // Check for specific Stripe errors
+//     if (error.type === "StripeInvalidRequestError") {
+//       console.error("Stripe error details:", error.raw);
+//     }
+
+//     return NextResponse.json(
+//       {
+//         error: "Failed to create checkout session",
+//         details: error.message,
+//         type: error.name,
+//       },
+//       { status: 500 },
+//     );
+//   }
+// }
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createClient } from "@supabase/supabase-js";
@@ -7,12 +155,9 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    // console.log("Request body:", body);
-
     const { priceId } = body;
 
     if (!priceId) {
-      // console.error("No priceId provided");
       return NextResponse.json(
         { error: "Price ID is required" },
         { status: 400 },
@@ -31,7 +176,6 @@ export async function POST(request) {
     const authHeader = request.headers.get("authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.error("No Bearer token in headers");
       return NextResponse.json(
         { error: "No authentication token provided" },
         { status: 401 },
@@ -46,39 +190,34 @@ export async function POST(request) {
       error: authError,
     } = await supabase.auth.getUser(token);
 
-    if (authError) {
-      console.error("Auth error:", authError);
+    if (authError || !user) {
       return NextResponse.json(
-        { error: "Authentication failed: " + authError.message },
+        { error: "Authentication failed" },
         { status: 401 },
       );
     }
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 401 });
-    }
-
-    // Check Stripe client
 
     if (!stripe) {
       throw new Error("Stripe client not initialized");
     }
 
-    // Check existing subscription
-    const { data: existingSubscription, error: subError } = await supabase
+    // ============================================================
+    // 1. IMPROVED CUSTOMER LOOKUP (Fixes Duplicate Customers)
+    // ============================================================
+    // We look for the most recent subscription, REGARDLESS of status.
+    // This allows us to reuse the Customer ID even if they previously canceled.
+    const { data: existingSubscription } = await supabase
       .from("subscriptions")
-      .select("stripe_customer_id, status")
+      .select("stripe_customer_id")
       .eq("user_id", user.id)
-      .in("status", ["active", "trialing", "past_due"])
+      .not("stripe_customer_id", "is", null) // Ensure ID exists
+      .order("created_at", { ascending: false }) // Get latest
+      .limit(1)
       .single();
 
-    if (subError && subError.code !== "PGRST116") {
-      console.error("Subscription query error:", subError);
-    }
-
-    // Create or retrieve Stripe customer
     let customerId = existingSubscription?.stripe_customer_id;
 
+    // Create customer if none exists
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email,
@@ -89,10 +228,11 @@ export async function POST(request) {
         },
       });
       customerId = customer.id;
-    } else {
     }
 
-    // Create checkout session
+    // ============================================================
+    // 2. CREATE SESSION (Your Metadata Fix is here ✅)
+    // ============================================================
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
@@ -105,6 +245,8 @@ export async function POST(request) {
       payment_method_types: ["card"],
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard/billing?canceled=true`,
+
+      // Metadata on the SESSION (Good for logs)
       metadata: {
         userId: user.id,
         userEmail: user.email,
@@ -112,6 +254,9 @@ export async function POST(request) {
       },
       allow_promotion_codes: true,
       billing_address_collection: "required",
+
+      // ✅ CRITICAL: This ensures the Subscription object gets the metadata
+      // so your Webhook can find the user immediately.
       subscription_data: {
         metadata: {
           userId: user.id,
@@ -127,20 +272,12 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("=== CHECKOUT API ERROR ===");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-
-    // Check for specific Stripe errors
-    if (error.type === "StripeInvalidRequestError") {
-      console.error("Stripe error details:", error.raw);
-    }
+    console.error("Details:", error.message);
 
     return NextResponse.json(
       {
         error: "Failed to create checkout session",
         details: error.message,
-        type: error.name,
       },
       { status: 500 },
     );
