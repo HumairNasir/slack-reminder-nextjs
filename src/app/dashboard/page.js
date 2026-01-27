@@ -131,18 +131,6 @@ export default function DashboardPage() {
         <div className="stat-card">
           <h3 className="stat-title">Active Reminders</h3>
           <p className="stat-number">{dashboardStats.activeReminders}</p>
-          {/* Optional: Add text showing exactly how many used */}
-          <div
-            className="limit-info"
-            style={{ marginBottom: "10px", color: "#666" }}
-          >
-            {dashboardStats.limits && (
-              <small>
-                {dashboardStats.limits.currentReminders} /{" "}
-                {dashboardStats.limits.maxReminders} used
-              </small>
-            )}
-          </div>
           <button
             className="action-btn dark-btn"
             onClick={() => router.push("/dashboard/reminders/create")}

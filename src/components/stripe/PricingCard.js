@@ -1,71 +1,58 @@
 "use client";
 
-import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { createClient } from "@/lib/supabase/client";
 import "./pricing.css";
 
-export default function PricingCard({ plan, isPopular = false }) {
+export default function PricingCard({
+  plan,
+  isPopular = false,
+  isCurrent = false, // 👈 Checks if this is the active plan
+  actionLabel = "Get Started", // 👈 This variable holds the dynamic text
+  onAction = null, // 👈 This function handles the click
+  isLoading = false,
+  buttonClass = "", // 👈 Handles red/grey colors
+}) {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const supabase = createClient();
 
-  const handleSubscribe = async () => {
-    if (!user) {
-      alert("Please login first");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // 1. Get the current session from Supabase
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session || !session.access_token) {
-        alert("Session expired. Please login again.");
-        return;
-      }
-
-      // 2. Create checkout session WITH auth token
-      const response = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          priceId: plan.priceId,
-        }),
-      });
-
-      // 3. Check for errors
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout session");
-      }
-
-      const data = await response.json();
-
-      if (data.url) {
-        // Redirect to Stripe Checkout
-        window.location.href = data.url;
-      } else {
-        throw new Error("No checkout URL received");
-      }
-    } catch (error) {
-      console.error("Subscription error:", error);
-      alert(error.message || "Failed to start subscription. Please try again.");
-    } finally {
-      setLoading(false);
+  // Handle the click (Upgrade, Cancel, etc.)
+  const handleClick = () => {
+    if (onAction) {
+      onAction();
+    } else {
+      console.warn("No action provided for this button");
     }
   };
 
   return (
-    <div className={`pricing-card ${isPopular ? "popular" : ""}`}>
+    <div
+      className={`pricing-card ${isPopular ? "popular" : ""} ${isCurrent ? "current-plan-border" : ""}`}
+      style={
+        isCurrent ? { border: "2px solid #2563eb", position: "relative" } : {}
+      }
+    >
+      {/* Popular Badge */}
       {isPopular && <div className="popular-badge">Most Popular</div>}
+
+      {/* Current Plan Badge */}
+      {isCurrent && (
+        <div
+          style={{
+            position: "absolute",
+            top: "12px", // CHANGED: Positive value moves it INSIDE the box
+            right: "12px", // Adjusted slightly for better spacing
+            backgroundColor: "#2563eb", // Blue background
+            color: "white",
+            fontSize: "0.75rem",
+            padding: "4px 12px",
+            borderRadius: "9999px", // Fully rounded
+            fontWeight: "600",
+            zIndex: 10,
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)", // Optional: adds a nice pop
+          }}
+        >
+          Current Plan
+        </div>
+      )}
 
       <div className="pricing-header">
         <h3>{plan.name}</h3>
@@ -86,12 +73,20 @@ export default function PricingCard({ plan, isPopular = false }) {
         </ul>
       </div>
 
+      {/* 👇 THIS IS THE KEY CHANGE 👇 */}
       <button
-        className="subscribe-btn"
-        onClick={handleSubscribe}
-        disabled={loading || !user}
+        className={`subscribe-btn ${buttonClass}`}
+        onClick={handleClick}
+        disabled={isLoading || !user}
+        style={
+          buttonClass === "btn-cancel"
+            ? { backgroundColor: "#dc2626" }
+            : buttonClass === "btn-secondary"
+              ? { backgroundColor: "#4b5563" }
+              : {}
+        }
       >
-        {loading ? "Processing..." : "Get Started"}
+        {isLoading ? "Processing..." : actionLabel}
       </button>
     </div>
   );
