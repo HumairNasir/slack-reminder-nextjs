@@ -127,7 +127,7 @@ export default function DashboardPage() {
           <p className="stat-number">{dashboardStats.activeReminders}</p>
           <button
             className="action-btn dark-btn"
-            onClick={() => router.push("/dashboard/reminders")}
+            onClick={() => router.push("/dashboard/reminders/create")}
           >
             Create Reminder
           </button>
@@ -138,19 +138,25 @@ export default function DashboardPage() {
       <div className="actions-section">
         <h2 className="section-title">Quick Actions</h2>
         <div className="actions-grid">
-          <button className="action-item">
+          {/* <button className="action-item">
             <div className="action-icon">📅</div>
             <p className="action-text">Schedule Reminder</p>
           </button>
           <button className="action-item">
             <div className="action-icon">🔄</div>
             <p className="action-text">View Logs</p>
-          </button>
-          <button className="action-item">
+          </button> */}
+          <button
+            className="action-item"
+            onClick={() => router.push("/dashboard/settings")}
+          >
             <div className="action-icon">⚙️</div>
             <p className="action-text">Settings</p>
           </button>
-          <button className="action-item">
+          <button
+            className="action-item"
+            onClick={() => router.push("/dashboard/analytics")}
+          >
             <div className="action-icon">📊</div>
             <p className="action-text">Analytics</p>
           </button>

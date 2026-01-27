@@ -303,9 +303,9 @@ export default function SlackContent() {
                       )}
                     </div>
                   </div>
-                  <button className="select-channel-btn">
+                  {/* <button className="select-channel-btn">
                     Select for Reminders
-                  </button>
+                  </button> */}
                 </div>
               );
             })}

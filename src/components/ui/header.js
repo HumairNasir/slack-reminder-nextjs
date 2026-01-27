@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, User, LogOut, Menu, X } from "lucide-react";
+import { User, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -59,10 +59,10 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
       <div className="header-actions">
         {user ? (
           <>
-            <button className="notification-btn">
+            {/* <button className="notification-btn">
               <Bell className="icon" />
               <span className="notification-dot" />
-            </button>
+            </button> */}
 
             <div className="user-dropdown" ref={dropdownRef}>
               <button
@@ -79,7 +79,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
                 <div className="dropdown-menu">
                   <div className="dropdown-item user-info">
                     <div className="user-email">{user.email}</div>
-                    <div className="user-role">User</div>
+                    {/* <div className="user-role">{user.role}</div> */}
                   </div>
                   <button
                     className="dropdown-item logout-btn"

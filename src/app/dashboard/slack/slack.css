@@ -345,7 +345,7 @@
   border-radius: 9999px;
 }
 
-.select-channel-btn {
+/* .select-channel-btn {
   width: 100%;
   background-color: #10b981;
   color: white;
@@ -359,7 +359,7 @@
 
 .select-channel-btn:hover {
   background-color: #059669;
-}
+} */
 
 .instructions {
   margin-top: 2rem;

@@ -13,7 +13,7 @@ const menuItems = [
   { name: "Reminders", icon: Calendar, href: "/dashboard/reminders" },
   { name: "Slack", icon: Slack, href: "/dashboard/slack" },
   { name: "Billing", icon: Zap, href: "/dashboard/billing" },
-  { name: "Settings", icon: Settings, href: "/dashboard/settings" },
+  // { name: "Settings", icon: Settings, href: "/dashboard/settings" },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {

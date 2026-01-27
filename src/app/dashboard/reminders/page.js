@@ -2,6 +2,7 @@
 import { checkUserLimits } from "@/lib/subscription/checkLimits";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
+import { X, Loader2 } from "lucide-react";
 import "./reminder.css";
 
 export default function RemindersPage() {
@@ -10,6 +11,17 @@ export default function RemindersPage() {
   const [canCreate, setCanCreate] = useState(false);
   const [reminders, setReminders] = useState([]);
   const [remindersLoading, setRemindersLoading] = useState(false);
+
+  // --- MODAL & EDIT STATE ---
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [updating, setUpdating] = useState(false);
+
+  // --- DROPDOWN DATA ---
+  const [connections, setConnections] = useState([]);
+  const [channels, setChannels] = useState([]);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -17,64 +29,74 @@ export default function RemindersPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
         setLoading(false);
         return;
       }
 
-      // Load subscription limits
+      // 1. Load limits
       const limitsData = await checkUserLimits(user.id);
       setLimits(limitsData);
       setCanCreate(limitsData.allowed && limitsData.limits?.canAddReminder);
 
-      // Load user's reminders
+      // 2. Load reminders
       await loadReminders(user.id);
+
+      // 3. Load Connections (For the Edit Modal Dropdown)
+      const { data: connData } = await supabase
+        .from("slack_connections")
+        .select("id, team_name")
+        .eq("user_id", user.id)
+        .eq("is_active", true);
+      setConnections(connData || []);
 
       setLoading(false);
     }
-
     loadData();
   }, []);
 
-  // Refresh reminders when page becomes visible (after creating a reminder)
+  // Refresh reminders when page becomes visible
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-
-        if (user) {
-          await loadReminders(user.id);
-        }
+        if (user) await loadReminders(user.id);
       }
     };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
+
+  // Fetch Channels when Workspace changes in Modal
+  useEffect(() => {
+    async function fetchChannels() {
+      if (!editForm.connection_id || !isEditModalOpen) return;
+
+      setChannelsLoading(true);
+      const { data } = await supabase
+        .from("slack_channels")
+        .select("*")
+        .eq("connection_id", editForm.connection_id);
+
+      setChannels(data || []);
+      setChannelsLoading(false);
+    }
+    fetchChannels();
+  }, [editForm.connection_id, isEditModalOpen]);
 
   const loadReminders = async (userId) => {
     setRemindersLoading(true);
     try {
       const { data: remindersData, error } = await supabase
         .from("reminders")
-        .select(
-          `
-          *,
-          slack_connections(team_name)
-        `,
-        )
+        .select(`*, slack_connections(team_name)`)
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error loading reminders:", error);
-        return;
-      }
-
+      if (error) throw error;
       setReminders(remindersData || []);
     } catch (error) {
       console.error("Error loading reminders:", error);
@@ -88,56 +110,290 @@ export default function RemindersPage() {
       alert("You need an active subscription to create reminders.");
       return;
     }
-
     if (!limits.limits?.canAddReminder) {
-      alert(
-        `Plan limit reached! You can only have ${limits.limits.maxReminders} reminders.`,
-      );
+      alert(`Plan limit reached! Max ${limits.limits.maxReminders} reminders.`);
       return;
     }
-
-    // Redirect to reminder creation form
     window.location.href = "/dashboard/reminders/create";
   };
 
-  if (loading) {
-    return <div className="page-title">Loading...</div>;
-  }
+  // --- EDIT MODAL ACTIONS ---
+
+  const openEditModal = (reminder) => {
+    // Convert UTC DB time to Local Time for input
+    // const date = new Date(reminder.scheduled_for);
+    const date = new Date(); //Show Actual Time
+    const localIsoString = new Date(
+      date.getTime() - date.getTimezoneOffset() * 60000,
+    )
+      .toISOString()
+      .slice(0, 16);
+
+    setEditForm({
+      id: reminder.id,
+      title: reminder.title,
+      message: reminder.message,
+      recurrence: reminder.recurrence || "once",
+      scheduled_for: localIsoString,
+      connection_id: reminder.connection_id,
+      channel_id: reminder.channel_id,
+      originalStatus: reminder.status, // Logic: Sent vs Active
+    });
+
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    setUpdating(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      if (!editForm.connection_id || !editForm.channel_id) {
+        alert("Please select a Workspace and Channel");
+        setUpdating(false);
+        return;
+      }
+
+      // Convert Local Input back to UTC
+      const utcDate = new Date(editForm.scheduled_for).toISOString();
+
+      // Find Channel Name for display
+      const selectedChannel = channels.find(
+        (c) => c.channel_id === editForm.channel_id,
+      );
+      const channelName = selectedChannel
+        ? selectedChannel.channel_name
+        : "unknown";
+
+      const payload = {
+        title: editForm.title,
+        message: editForm.message,
+        scheduled_for: utcDate,
+        recurrence: editForm.recurrence,
+        connection_id: editForm.connection_id,
+        channel_id: editForm.channel_id,
+        channel_name: channelName,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+
+      // LOGIC: If 'sent' -> Create New. If 'active' -> Update Existing.
+      if (editForm.originalStatus === "sent") {
+        const { error } = await supabase.from("reminders").insert({
+          ...payload,
+          user_id: user.id,
+          status: "active", // New reminder starts as active
+        });
+        if (error) throw error;
+        alert("New reminder created from history!");
+      } else {
+        const { error } = await supabase
+          .from("reminders")
+          .update({
+            ...payload,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editForm.id);
+        if (error) throw error;
+      }
+
+      setIsEditModalOpen(false);
+      await loadReminders(user.id);
+    } catch (error) {
+      console.error("Update failed:", error);
+      alert("Failed to update reminder.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Are you sure you want to delete this reminder?")) return;
+    try {
+      const { error } = await supabase.from("reminders").delete().eq("id", id);
+      if (error) throw error;
+      setReminders((prev) => prev.filter((r) => r.id !== id));
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) loadReminders(user.id);
+    } catch (error) {
+      console.error("Delete failed:", error);
+    }
+  };
+
+  if (loading) return <div className="page-title">Loading...</div>;
 
   return (
     <div>
       <h1 className="page-title">Reminders</h1>
 
+      {/* --- EDIT MODAL (Inserted Here) --- */}
+      {isEditModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>
+                {editForm.originalStatus === "sent"
+                  ? "Reschedule (Creates New)"
+                  : "Edit Reminder"}
+              </h2>
+              <button
+                className="close-btn"
+                onClick={() => setIsEditModalOpen(false)}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Title</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, title: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Workspace</label>
+                  <select
+                    value={editForm.connection_id}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        connection_id: e.target.value,
+                        channel_id: "",
+                      })
+                    }
+                  >
+                    <option value="">Select Workspace</option>
+                    {connections.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.team_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Channel</label>
+                  <select
+                    value={editForm.channel_id}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, channel_id: e.target.value })
+                    }
+                    disabled={!editForm.connection_id || channelsLoading}
+                  >
+                    <option value="">
+                      {channelsLoading ? "Loading..." : "Select Channel"}
+                    </option>
+                    {channels.map((c) => (
+                      <option key={c.channel_id} value={c.channel_id}>
+                        #{c.channel_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Message</label>
+                <textarea
+                  rows={3}
+                  value={editForm.message}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, message: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.scheduled_for}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        scheduled_for: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Recurrence</label>
+                  <select
+                    value={editForm.recurrence}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, recurrence: e.target.value })
+                    }
+                  >
+                    <option value="once">One-time</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                onClick={() => setIsEditModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleUpdate}
+                disabled={updating}
+              >
+                {updating ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : editForm.originalStatus === "sent" ? (
+                  "Create New"
+                ) : (
+                  "Save Changes"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* --- END MODAL --- */}
+
+      {/* --- YOUR ORIGINAL STATS SECTION --- */}
       {limits && (
         <div className="plan-status">
           <h3>Subscription Status</h3>
           <p>Plan: {limits.allowed ? "Active" : "No active plan"}</p>
-
           {limits.allowed && (
-            <>
-              <div className="usage-stats">
-                <p>
-                  Reminders: {limits.limits.currentReminders} /{" "}
-                  {limits.limits.maxReminders}
-                </p>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{
-                      width: `${(limits.limits.currentReminders / limits.limits.maxReminders) * 100}%`,
-                      backgroundColor: limits.limits.canAddReminder
-                        ? "green"
-                        : "red",
-                    }}
-                  />
-                </div>
-                {!limits.limits.canAddReminder && (
-                  <p className="warning">
-                    ⚠️ Reminder limit reached! Upgrade your plan.
-                  </p>
-                )}
+            <div className="usage-stats">
+              <p>
+                Reminders: {limits.limits.currentReminders} /{" "}
+                {limits.limits.maxReminders}
+              </p>
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{
+                    width: `${(limits.limits.currentReminders / limits.limits.maxReminders) * 100}%`,
+                    backgroundColor: limits.limits.canAddReminder
+                      ? "green"
+                      : "red",
+                  }}
+                />
               </div>
-            </>
+            </div>
           )}
         </div>
       )}
@@ -150,13 +406,6 @@ export default function RemindersPage() {
         >
           {canCreate ? "➕ Create New Reminder" : "Plan Limit Reached"}
         </button>
-
-        {!limits?.allowed && (
-          <p className="error-message">
-            You need an active subscription to create reminders.
-            <a href="/dashboard/billing"> Upgrade your plan</a>
-          </p>
-        )}
       </div>
 
       <div className="reminders-list">
@@ -210,15 +459,25 @@ export default function RemindersPage() {
                     <div className="detail-item">
                       <strong>Recurrence:</strong> {reminder.recurrence}
                     </div>
-                    <div className="detail-item">
-                      <strong>Timezone:</strong> {reminder.timezone}
-                    </div>
                   </div>
                 </div>
 
                 <div className="reminder-actions">
-                  <button className="edit-btn">Edit</button>
-                  <button className="delete-btn">Delete</button>
+                  <button
+                    className="edit-btn"
+                    onClick={() => openEditModal(reminder)} // Opens Modal
+                  >
+                    Edit
+                  </button>
+
+                  {reminder.status !== "sent" && (
+                    <button
+                      className="delete-btn"
+                      onClick={() => handleDelete(reminder.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
