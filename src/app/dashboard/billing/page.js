@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react"; // Added Suspense
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -8,7 +8,9 @@ import PricingCard from "@/components/stripe/PricingCard";
 import { Loader2 } from "lucide-react";
 import "@/components/stripe/pricing.css";
 
-export default function BillingPage() {
+// 1. Rename your main logic component to 'BillingContent'
+//    and remove 'export default' from it.
+function BillingContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,7 +33,7 @@ export default function BillingPage() {
     try {
       console.log("🔄 Fetching billing data...");
 
-      // 1. Fetch Plans
+      // Fetch Plans
       const { data: dbPlans } = await supabase
         .from("subscription_plans")
         .select("*")
@@ -61,11 +63,10 @@ export default function BillingPage() {
 
       setPlans(formattedPlans);
 
-      // 2. Fetch Subscription
-      // Now that you added the Foreign Key, this query will work!
+      // Fetch Subscription
       const { data: subData, error } = await supabase
         .from("subscriptions")
-        .select("*, plan:subscription_plans(*)") // This alias 'plan' works now
+        .select("*, plan:subscription_plans(*)")
         .eq("user_id", user.id)
         .in("status", ["active", "trialing", "past_due"])
         .maybeSingle();
@@ -122,13 +123,11 @@ export default function BillingPage() {
       currentSubscription?.status === "trialing";
     const currentPlanId = currentSubscription?.plan_id;
 
-    // Safely compare numbers
     const currentPrice = parseFloat(
       currentSubscription?.plan?.price_monthly || 0,
     );
     const planPrice = parseFloat(plan.price);
 
-    // Case A: This is the user's current plan
     if (currentPlanId === plan.id) {
       return {
         label: "Cancel Plan",
@@ -137,7 +136,6 @@ export default function BillingPage() {
         isCurrent: true,
       };
     }
-    // Case B: Free Trial -> All are Subscribe
     if (isFreeTrial) {
       return {
         label: "Subscribe",
@@ -146,7 +144,6 @@ export default function BillingPage() {
         isCurrent: false,
       };
     }
-    // Case C: Upgrade / Downgrade
     if (currentSubscription) {
       if (planPrice > currentPrice) {
         return {
@@ -164,7 +161,6 @@ export default function BillingPage() {
         };
       }
     }
-    // Case D: New User
     return {
       label: "Get Started",
       action: () => handleCheckout(plan.priceId),
@@ -229,5 +225,21 @@ export default function BillingPage() {
         })}
       </div>
     </div>
+  );
+}
+
+// 2. Export a Wrapper Component that uses Suspense
+//    This fixes the "useSearchParams() should be wrapped in a suspense boundary" error.
+export default function BillingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-center">
+          <Loader2 className="animate-spin" />
+        </div>
+      }
+    >
+      <BillingContent />
+    </Suspense>
   );
 }
