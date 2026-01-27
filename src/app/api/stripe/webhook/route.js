@@ -2,18 +2,16 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createClient } from "@supabase/supabase-js";
 
-// ========== HELPER: ROBUST UPSERT ==========
-// This handles the race condition where "Payment Success" arrives before "Checkout Completed"
+// ========== HELPER: ROBUST UPSERT & AUTO-CANCEL ==========
 async function upsertSubscription(subscription, supabase) {
   const priceId = subscription.items.data[0].price.id;
 
-  // 1. Try to find User ID from Metadata (Best Case)
+  // 1. Try to find User ID from Metadata
   let userId =
     subscription.metadata?.userId || subscription.metadata?.supabaseUserId;
 
-  // 2. Fallback: Look up User ID by Stripe Customer ID (if metadata is missing)
+  // 2. Fallback: Look up User ID by Stripe Customer ID
   if (!userId) {
-    // console.log("⚠️ Metadata missing. looking up user by Stripe Customer ID...");
     const { data: customerMatch } = await supabase
       .from("subscriptions")
       .select("user_id")
@@ -28,7 +26,7 @@ async function upsertSubscription(subscription, supabase) {
         "❌ CRITICAL: Could not find User ID for subscription:",
         subscription.id,
       );
-      return; // Cannot save without User ID
+      return;
     }
   }
 
@@ -49,9 +47,29 @@ async function upsertSubscription(subscription, supabase) {
 
   const endDate = subscription.current_period_end
     ? new Date(subscription.current_period_end * 1000)
-    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // +30 days fallback
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-  // 5. UPSERT (Create or Update)
+  // ====================================================
+  // ⚡ NEW: AUTO-CANCEL OLD SUBSCRIPTIONS LOGIC
+  // ====================================================
+  // If the new subscription is ACTIVE, cancel any OTHER active plans for this user.
+  if (subscription.status === "active") {
+    const { error: cancelError } = await supabase
+      .from("subscriptions")
+      .update({
+        status: "canceled",
+        updated_at: new Date(),
+      })
+      .eq("user_id", userId)
+      .neq("stripe_subscription_id", subscription.id) // ⚠️ Don't cancel the new one!
+      .in("status", ["active", "trialing", "past_due"]);
+
+    if (!cancelError) {
+      console.log(`🧹 Cleaned up old subscriptions for user ${userId}`);
+    }
+  }
+
+  // 5. UPSERT (Create or Update the new one)
   const { error } = await supabase.from("subscriptions").upsert({
     user_id: userId,
     stripe_subscription_id: subscription.id,
@@ -76,12 +94,11 @@ async function upsertSubscription(subscription, supabase) {
 // ========== EVENT HANDLERS ==========
 
 async function handleCheckoutCompleted(session, supabase) {
-  // Just pass the subscription ID to our robust upsert function
   try {
     const subscription = await stripe.subscriptions.retrieve(
       session.subscription,
     );
-    // Inject session metadata into subscription object so the helper can find the user
+    // Inject session metadata into subscription object
     subscription.metadata = { ...subscription.metadata, ...session.metadata };
     await upsertSubscription(subscription, supabase);
   } catch (error) {
@@ -94,9 +111,8 @@ async function handleSubscriptionUpdate(subscription, supabase) {
 }
 
 async function handleInvoicePaymentSucceeded(invoice, supabase) {
-  // This event MUST also be able to create/update the row to fix race conditions
+  // This event MUST also be able to create/update the row
   if (!invoice.subscription) return;
-
   try {
     const subscription = await stripe.subscriptions.retrieve(
       invoice.subscription,
@@ -131,13 +147,12 @@ export async function POST(request) {
   let event;
   const webhookSecret =
     process.env.NODE_ENV === "development"
-      ? "whsec_test_for_local_development" // Replace if you have a local secret
+      ? "whsec_test_for_local_development"
       : process.env.STRIPE_WEBHOOK_SECRET;
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
-    // If in dev, try parsing JSON directly if signature fails (optional for testing)
     if (process.env.NODE_ENV === "development") {
       try {
         event = JSON.parse(body);
