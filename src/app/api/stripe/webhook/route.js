@@ -297,6 +297,15 @@ async function handleCheckoutCompleted(session, supabase) {
 
     if (plan) planId = plan.id;
 
+    // Safe Date Handling
+    const startDate = subscription.current_period_start
+      ? new Date(subscription.current_period_start * 1000)
+      : new Date();
+
+    const endDate = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // +30 days fallback
+
     // Save to database
     await supabase.from("subscriptions").upsert({
       user_id: userId,
@@ -304,9 +313,9 @@ async function handleCheckoutCompleted(session, supabase) {
       stripe_customer_id: customerId,
       plan_id: planId,
       status: subscription.status,
-      current_period_start: new Date(subscription.current_period_start * 1000),
-      current_period_end: new Date(subscription.current_period_end * 1000),
-      cancel_at_period_end: subscription.cancel_at_period_end,
+      current_period_start: startDate,
+      current_period_end: endDate,
+      cancel_at_period_end: subscription.cancel_at_period_end || false,
       updated_at: new Date(),
     });
   } catch (error) {
