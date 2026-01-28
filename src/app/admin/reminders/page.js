@@ -76,7 +76,7 @@ export default function AllReminders() {
 
         {/* Filter Tabs */}
         <div className="filter-tabs">
-          {["all", "active", "sent", "failed", "paused"].map((status) => (
+          {["all", "active", "sent", "failed"].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}

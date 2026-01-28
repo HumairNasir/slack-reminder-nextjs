@@ -41,36 +41,47 @@ export default function LoginPage() {
         return;
       }
 
-      // 2. Fetch role from users table
+      // 2. Fetch role AND status from users table
+      // UPDATED: Added 'status' to the select query
       const { data: profile, error: roleError } = await supabase
         .from("users")
-        .select("role")
+        .select("role, status")
         .eq("id", user.id)
         .single();
 
       if (roleError) {
-        console.warn("Could not fetch user role:", roleError.message);
+        console.warn("Could not fetch user profile:", roleError.message);
+      }
+
+      // 🛑 3. CHECK USER STATUS (New Logic)
+      // If status exists and is NOT 'active', block them.
+      // We explicitly check for 'inactive' or anything that isn't 'active'.
+      if (profile && profile.status !== "active") {
+        // Immediately kill the session we just created
+        await supabase.auth.signOut();
+
+        // Show the popup/error message
+        setError(
+          "You are not allowed to login. Please contact admin for further details.",
+        );
+        setLoading(false);
+        return;
       }
 
       const userRole = profile?.role || "user";
       console.log("Login successful. Role:", userRole);
 
-      // 3. Redirect based on Role - ONLY CALL THIS ONCE
+      // 4. Redirect based on Role
       const redirectPath = userRole === "super_admin" ? "/admin" : "/dashboard";
       console.log("Redirecting to:", redirectPath);
 
-      // Use window.location for full page reload to clear any stale state
+      // Use window.location to clear state completely
       window.location.href = redirectPath;
-
-      // OR if you prefer router:
-      // router.push(redirectPath);
-      // router.refresh();
     } catch (err) {
       console.error("Login error:", err);
       setError("An unexpected error occurred");
       setLoading(false);
     }
-    // Note: We don't set loading(false) on success because page will redirect
   };
 
   return (
