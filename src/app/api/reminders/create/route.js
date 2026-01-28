@@ -34,41 +34,66 @@ export async function POST(request) {
       );
     }
 
-    // --- LIMIT CHECK START ---
+    // --- SUBSCRIPTION & LIMIT CHECK START ---
+
+    // 1. Get the NEWEST valid subscription
     const { data: subscription } = await supabase
       .from("subscriptions")
       .select("plan_id, status, current_period_start, current_period_end")
       .eq("user_id", user.id)
       .in("status", ["active", "trialing", "past_due"])
-      .single();
+      .order("created_at", { ascending: false }) // 👈 FIX: Prioritize newest
+      .limit(1) // 👈 FIX: Take only one
+      .maybeSingle();
 
     if (!subscription) {
       return NextResponse.json(
-        { success: false, error: "No active subscription found." },
+        {
+          success: false,
+          error: "No active subscription found. Please upgrade.",
+        },
         { status: 403 },
       );
     }
 
+    // 2. 🛑 TIME ENFORCER: Check if it has actually expired
+    const now = new Date();
+    const periodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end)
+      : new Date(0);
+
+    if (periodEnd < now) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Your subscription or trial has expired. Please upgrade.",
+        },
+        { status: 403 }, // Block access
+      );
+    }
+
+    // 3. Get Plan Limits
     const { data: plan } = await supabase
       .from("subscription_plans")
       .select("max_reminders")
       .eq("id", subscription.plan_id)
       .single();
 
-    // Count usage (excluding failed)
+    // 4. Count usage (excluding failed)
     const { count: monthlyUsage } = await supabase
       .from("reminders")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id)
       .gte("created_at", subscription.current_period_start)
       .lte("created_at", subscription.current_period_end)
-      .neq("status", "failed"); // 👈 EXCLUDE FAILED
+      .neq("status", "failed");
 
+    // 5. Compare Limits
     if ((monthlyUsage || 0) >= plan.max_reminders) {
       return NextResponse.json(
         {
           success: false,
-          error: `Monthly limit reached (${monthlyUsage}/${plan.max_reminders}). Delete active reminders or upgrade.`,
+          error: `Monthly limit reached (${monthlyUsage}/${plan.max_reminders}). Upgrade to add more.`,
         },
         { status: 403 },
       );
