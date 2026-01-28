@@ -67,6 +67,8 @@ function BillingContent() {
         .select("*, plan:subscription_plans(*)")
         .eq("user_id", user.id)
         .in("status", ["active", "trialing", "past_due"])
+        .order("created_at", { ascending: false }) // 👈 Prioritize the newest plan
+        .limit(1) // 👈 Take only the top one
         .maybeSingle();
 
       if (error) console.error("❌ Subscription Error:", error.message);

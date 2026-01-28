@@ -24,7 +24,9 @@ export async function GET(request) {
       .select("status, plan_id, current_period_start, current_period_end")
       .eq("user_id", userId)
       .in("status", ["active", "trialing", "past_due"])
-      .maybeSingle(); // Use maybeSingle to avoid 406 error if no rows
+      .order("created_at", { ascending: false }) // 👈 Prioritize the newest plan
+      .limit(1) // 👈 Take only the top one
+      .maybeSingle();
 
     // 🛑 TIME ENFORCER: Check if the subscription time has run out
     const now = new Date();
