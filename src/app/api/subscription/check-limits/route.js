@@ -24,7 +24,16 @@ export async function GET(request) {
       .select("status, plan_id, current_period_start, current_period_end")
       .eq("user_id", userId)
       .in("status", ["active", "trialing", "past_due"])
-      .single();
+      .maybeSingle(); // Use maybeSingle to avoid 406 error if no rows
+
+    // 🛑 TIME ENFORCER: Check if the subscription time has run out
+    const now = new Date();
+    const periodEnd = subscription?.current_period_end
+      ? new Date(subscription.current_period_end)
+      : new Date(0); // If no date, assume expired
+
+    // It is expired if the End Date is in the past
+    const isExpired = periodEnd < now;
 
     let plan = null;
     let limits = {
@@ -63,31 +72,40 @@ export async function GET(request) {
           currentChannels = count || 0;
         }
 
-        // 3. Count Reminders (The Logic Update)
-        // Rule: Count (Active + Sent) inside current period. Ignore Failed.
+        // 3. Count Reminders
         const { count: currentReminders } = await supabase
           .from("reminders")
           .select("*", { count: "exact", head: true })
           .eq("user_id", userId)
           .gte("created_at", subscription.current_period_start)
           .lte("created_at", subscription.current_period_end)
-          .neq("status", "failed"); // 👈 EXCLUDE FAILED
+          .neq("status", "failed");
 
         limits = {
           maxChannels: planData.max_channels,
           maxReminders: planData.max_reminders,
           currentChannels: currentChannels,
           currentReminders: currentReminders || 0,
-          canAddChannel: currentChannels < planData.max_channels,
-          canAddReminder: (currentReminders || 0) < planData.max_reminders,
+          // 🛑 STRICT LOCK: If expired, they cannot add anything
+          canAddChannel: !isExpired && currentChannels < planData.max_channels,
+          canAddReminder:
+            !isExpired && (currentReminders || 0) < planData.max_reminders,
         };
       }
     }
 
+    // 4. Final Permission Logic
+    const isValidStatus =
+      subscription &&
+      ["active", "trialing", "past_due"].includes(subscription.status);
+
     const result = {
-      allowed:
-        !!subscription &&
-        ["active", "trialing", "past_due"].includes(subscription.status),
+      // User is allowed ONLY if status is valid AND time hasn't run out
+      allowed: isValidStatus && !isExpired,
+
+      // We send this flag so the UI knows exactly why they are blocked
+      isExpired: isExpired,
+
       plan: plan,
       limits: limits,
     };

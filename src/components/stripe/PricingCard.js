@@ -38,9 +38,9 @@ export default function PricingCard({
         <div
           style={{
             position: "absolute",
-            top: "12px", // CHANGED: Positive value moves it INSIDE the box
-            right: "12px", // Adjusted slightly for better spacing
-            backgroundColor: "#2563eb", // Blue background
+            top: "11px",
+            right: "1px",
+            backgroundColor: "#1252dd",
             color: "white",
             fontSize: "0.75rem",
             padding: "4px 12px",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react"; // Added Suspense
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -8,8 +8,6 @@ import PricingCard from "@/components/stripe/PricingCard";
 import { Loader2 } from "lucide-react";
 import "@/components/stripe/pricing.css";
 
-// 1. Rename your main logic component to 'BillingContent'
-//    and remove 'export default' from it.
 function BillingContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -107,14 +105,39 @@ function BillingContent() {
     }
   };
 
+  // ✅ UPDATED: Connects to the new Portal API
   const handleCancelPlan = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to cancel? Premium features will be disabled immediately.",
-      )
-    )
-      return;
-    alert("Please use the Stripe Customer Portal to cancel.");
+    setProcessingId("cancel"); // Show loading state on the button
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      // Call our new API route
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        // Redirect to Stripe's secure portal
+        window.location.href = data.url;
+      } else {
+        alert("Failed to load billing portal. Please try again.");
+        console.error(data.error);
+        setProcessingId(null);
+      }
+    } catch (error) {
+      console.error("Portal error:", error);
+      alert("Something went wrong.");
+      setProcessingId(null);
+    }
   };
 
   const getCardConfig = (plan) => {
@@ -228,8 +251,7 @@ function BillingContent() {
   );
 }
 
-// 2. Export a Wrapper Component that uses Suspense
-//    This fixes the "useSearchParams() should be wrapped in a suspense boundary" error.
+// Export Wrapper
 export default function BillingPage() {
   return (
     <Suspense
